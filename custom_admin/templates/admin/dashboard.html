@@ -1,0 +1,313 @@
+<!-- templates/admin/dashboard.html -->
+{% extends "admin/base.html" %}
+
+{% block title %}Admin Dashboard - Port Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-tachometer-alt"></i>
+        Admin Dashboard
+    </h1>
+    <p class="page-subtitle">Overview of your Port Management System</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    {% for model_key, stat in stats.items() %}
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <i class="{{ stat.icon }} text-primary" style="font-size: 24px;"></i>
+                </div>
+                <div class="text-right">
+                    <div class="stats-number text-primary">{{ stat.total }}</div>
+                    {% if stat.active != stat.total %}
+                    <small class="text-muted">{{ stat.active }} active</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="stats-label mb-0">{{ stat.name }}</h6>
+                <a href="{{ stat.url }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% set quick_actions = [
+                        {'name': 'Add Application', 'url': url_for('custom_admin.model_create', model_name='application'), 'icon': 'fas fa-plus-circle', 'color': 'primary'},
+                        {'name': 'Add Module', 'url': url_for('custom_admin.model_create', model_name='module'), 'icon': 'fas fa-folder-plus', 'color': 'success'},
+                        {'name': 'Add Entity Type', 'url': url_for('custom_admin.model_create', model_name='entity_type'), 'icon': 'fas fa-table', 'color': 'info'},
+                        {'name': 'Add User', 'url': url_for('custom_admin.model_create', model_name='user'), 'icon': 'fas fa-user-plus', 'color': 'warning'},
+                        {'name': 'Add Role', 'url': url_for('custom_admin.model_create', model_name='role'), 'icon': 'fas fa-shield-alt', 'color': 'secondary'},
+                        {'name': 'Add Lookup Type', 'url': url_for('custom_admin.model_create', model_name='lookup_type'), 'icon': 'fas fa-tags', 'color': 'dark'}
+                    ] %}
+                    
+                    {% for action in quick_actions %}
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <a href="{{ action.url }}" class="btn btn-outline-{{ action.color }} btn-block text-left">
+                            <i class="{{ action.icon }}"></i>
+                            {{ action.name }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i>
+                    System Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Version:</strong></td>
+                        <td>1.0.0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Environment:</strong></td>
+                        <td><span class="badge badge-warning">Development</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Database:</strong></td>
+                        <td>SQLite</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Current User:</strong></td>
+                        <td>{{ current_user.full_name or current_user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Last Login:</strong></td>
+                        <td>{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') if current_user.last_login else 'First login' }}</td>
+                    </tr>
+                </table>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-home"></i>
+                        Main Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+{% if recent_activities %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history"></i>
+                    Recent Activities
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>User</th>
+                                <th>Time</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in recent_activities %}
+                            <tr>
+                                <td>{{ activity.action }}</td>
+                                <td>{{ activity.user }}</td>
+                                <td>{{ activity.time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>{{ activity.ip or 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Categories Overview -->
+<div class="row">
+    {% for category, category_data in navigation.items() %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="{{ category_data.icon }}"></i>
+                    {{ category }}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for model in category_data.models %}
+                    <a href="{{ model.url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="{{ model.icon }}"></i>
+                            {{ model.name }}
+                        </div>
+                        {% set model_stat = stats.get(model.key.replace('-', '_')) %}
+                        {% if model_stat %}
+                        <span class="badge badge-primary badge-pill">{{ model_stat.total }}</span>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Charts Section (Optional - can be expanded) -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie"></i>
+                    Data Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="dataDistributionChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line"></i>
+                    Activity Trend
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="activityTrendChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js for charts (optional) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize charts
+        initializeCharts();
+        
+        // Auto-refresh dashboard every 5 minutes
+        setInterval(function() {
+            console.log('Auto-refreshing dashboard stats...');
+            // You can implement AJAX refresh here
+        }, 5 * 60 * 1000);
+    });
+    
+    function initializeCharts() {
+        // Data Distribution Chart
+        var ctx1 = document.getElementById('dataDistributionChart').getContext('2d');
+        var dataDistributionChart = new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    {% for model_key, stat in stats.items() %}
+                    '{{ stat.name }}'{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for model_key, stat in stats.items() %}
+                        {{ stat.total }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: [
+                        '#007bff', '#28a745', '#ffc107', '#dc3545', 
+                        '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        });
+        
+        // Activity Trend Chart (sample data)
+        var ctx2 = document.getElementById('activityTrendChart').getContext('2d');
+        var activityTrendChart = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Activities',
+                    data: [12, 19, 8, 15, 22, 8, 16],
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Refresh stats
+    function refreshStats() {
+        $.ajax({
+            url: '{{ url_for("custom_admin.dashboard") }}',
+            method: 'GET',
+            success: function() {
+                location.reload();
+            },
+            error: function() {
+                showAlert('Error refreshing dashboard', 'danger');
+            }
+        });
+    }
+</script>
+{% endblock %}

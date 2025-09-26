@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Port Management System{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">Dashboard</h1>
+    <nav class="content-breadcrumb">
+        <span class="material-symbols-outlined" style="font-size: 12px; margin-right: 3px;">home</span>
+        Dashboard
+    </nav>
+</div>
+
+<div class="row">
+    <!-- Quick Stats -->
+    <div class="col-md-12 mb-4">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card-sap">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="material-symbols-outlined" style="font-size: 32px; color: var(--sap-blue);">apps</span>
+                        </div>
+                        <h4 class="mb-1" style="font-size: 24px; font-weight: 600;">{{ applications|length }}</h4>
+                        <p class="text-muted mb-0" style="font-size: 11px;">Applications</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-sap">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="material-symbols-outlined" style="font-size: 32px; color: #28a745;">folder</span>
+                        </div>
+                        <h4 class="mb-1" style="font-size: 24px; font-weight: 600;">
+                            {% set total_modules = 0 %}
+                            {% for app in applications %}
+                                {% set total_modules = total_modules + app.modules.filter_by(is_active=True).count() %}
+                            {% endfor %}
+                            {{ total_modules }}
+                        </h4>
+                        <p class="text-muted mb-0" style="font-size: 11px;">Active Modules</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-sap">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="material-symbols-outlined" style="font-size: 32px; color: #ffc107;">table_view</span>
+                        </div>
+                        <h4 class="mb-1" style="font-size: 24px; font-weight: 600;">
+                            {% set total_entities = 0 %}
+                            {% for app in applications %}
+                                {% for module in app.modules.filter_by(is_active=True) %}
+                                    {% set total_entities = total_entities + module.entity_types.filter_by(is_active=True).count() %}
+                                {% endfor %}
+                            {% endfor %}
+                            {{ total_entities }}
+                        </h4>
+                        <p class="text-muted mb-0" style="font-size: 11px;">Entity Types</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-sap">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <span class="material-symbols-outlined" style="font-size: 32px; color: #17a2b8;">star</span>
+                        </div>
+                        <h4 class="mb-1" style="font-size: 24px; font-weight: 600;">{{ favorite_modules|length }}</h4>
+                        <p class="text-muted mb-0" style="font-size: 11px;">Favorites</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorite Modules -->
+    {% if favorite_modules %}
+    <div class="col-md-6 mb-4">
+        <div class="card-sap">
+            <div class="card-header">
+                <span class="material-symbols-outlined" style="margin-right: 5px;">star</span>
+                Quick Access - Favorite Modules
+            </div>
+            <div class="card-body">
+                <div class="module-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
+                    {% for module in favorite_modules %}
+                    <a href="{{ url_for('module_view', module_id=module.id) }}" class="module-card" style="padding: 8px;">
+                        <div class="module-icon">
+                            <span class="material-symbols-outlined">{{ module.icon or 'folder' }}</span>
+                        </div>
+                        <div class="module-name">{{ module.name }}</div>
+                        <div class="module-description">{{ module.description or '' }}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- System Information -->
+    <div class="col-md-6 mb-4">
+        <div class="card-sap">
+            <div class="card-header">
+                <span class="material-symbols-outlined" style="margin-right: 5px;">info</span>
+                System Information
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <small class="text-muted">User:</small><br>
+                        <strong style="font-size: 11px;">{{ current_user.full_name or current_user.username }}</strong>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <small class="text-muted">Last Login:</small><br>
+                        <strong style="font-size: 11px;">{{ current_user.last_login | format_datetime if current_user.last_login else 'First login' }}</strong>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <small class="text-muted">System Version:</small><br>
+                        <strong style="font-size: 11px;">v1.0.0</strong>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <small class="text-muted">Environment:</small><br>
+                        <strong style="font-size: 11px;">Development</strong>
+                    </div>
+                </div>
+                
+                <div class="mt-3 pt-2" style="border-top: 1px solid var(--sap-border);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Quick Actions:</small>
+                        <div>
+                            <a href="/custom-admin/" class="btn-sap" style="font-size: 10px; padding: 2px 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 12px;">settings</span>
+                                Admin
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Applications -->
+    <div class="col-md-12">
+        <div class="card-sap">
+            <div class="card-header">
+                <span class="material-symbols-outlined" style="margin-right: 5px;">apps</span>
+                All Applications
+            </div>
+            <div class="card-body">
+                {% if applications %}
+                {% for application in applications %}
+                <div class="mb-4">
+                    <h5 style="font-size: 14px; font-weight: 600; margin-bottom: 15px; color: var(--sap-blue);">
+                        <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 18px;">{{ application.icon or 'apps' }}</span>
+                        {{ application.name }}
+                    </h5>
+                    
+                    {% if application.description %}
+                    <p style="font-size: 11px; color: var(--sap-text-muted); margin-bottom: 15px;">
+                        {{ application.description }}
+                    </p>
+                    {% endif %}
+                    
+                    {% set active_modules = application.modules.filter_by(is_active=True).all() %}
+                    {% if active_modules %}
+                    <div class="module-grid">
+                        {% for module in active_modules %}
+                        <a href="{{ url_for('module_view', module_id=module.id) }}" class="module-card">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="module-icon">
+                                    <span class="material-symbols-outlined">{{ module.icon or 'folder' }}</span>
+                                </div>
+                                <span class="favorite-star material-symbols-outlined" 
+                                      data-module-id="{{ module.id }}"
+                                      onclick="toggleFavorite(event, {{ module.id }})"
+                                      style="font-size: 16px;">
+                                    star_border
+                                </span>
+                            </div>
+                            <div class="module-name">{{ module.name }}</div>
+                            <div class="module-description">{{ module.description or '' }}</div>
+                            
+                            <!-- Entity Types Count -->
+                            {% set entity_count = module.entity_types.filter_by(is_active=True).count() %}
+                            {% if entity_count > 0 %}
+                            <div style="margin-top: 8px; font-size: 10px; color: var(--sap-text-muted);">
+                                <span class="material-symbols-outlined" style="font-size: 12px; margin-right: 2px;">table_view</span>
+                                {{ entity_count }} entity{{ 's' if entity_count != 1 else '' }}
+                            </div>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted" style="padding: 20px;">
+                        <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.3;">folder_open</span>
+                        <p style="font-size: 11px; margin-top: 10px;">No modules available</p>
+                        <a href="/admin/" class="btn-sap btn-primary" style="font-size: 10px; padding: 4px 12px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px;">add</span>
+                            Add Modules
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if not loop.last %}
+                <hr style="margin: 30px 0; border-color: var(--sap-border);">
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <div class="text-center" style="padding: 40px;">
+                    <span class="material-symbols-outlined" style="font-size: 64px; opacity: 0.3; color: var(--sap-text-muted);">apps</span>
+                    <h5 style="margin-top: 15px; font-size: 14px; color: var(--sap-text-muted);">No Applications Found</h5>
+                    <p style="font-size: 11px; color: var(--sap-text-muted); margin-bottom: 20px;">
+                        Get started by creating your first application and modules.
+                    </p>
+                    <a href="/admin/" class="btn-sap btn-primary">
+                        <span class="material-symbols-outlined">add</span>
+                        Create Application
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Welcome Modal for First Time Users -->
+{% if not favorite_modules and applications|length == 0 %}
+<div class="modal fade" id="welcomeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--sap-blue) 0%, var(--sap-dark-blue) 100%); color: white;">
+                <h5 class="modal-title">
+                    <span class="material-symbols-outlined" style="margin-right: 8px;">celebration</span>
+                    Welcome to Port Management System
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <span class="material-symbols-outlined" style="font-size: 64px; color: var(--sap-blue);">rocket_launch</span>
+                    <h4 style="margin: 20px 0; color: var(--sap-text);">Get Started</h4>
+                    <p style="font-size: 12px; color: var(--sap-text-muted); margin-bottom: 30px;">
+                        This is a flexible, customizable system. You can create applications, modules, and entity types 
+                        to match your specific business requirements.
+                    </p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: var(--sap-blue);">apps</span>
+                        <h6 style="margin: 10px 0; font-size: 12px;">1. Create Applications</h6>
+                        <p style="font-size: 10px; color: var(--sap-text-muted);">Define your business applications</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: #28a745;">folder</span>
+                        <h6 style="margin: 10px 0; font-size: 12px;">2. Add Modules</h6>
+                        <p style="font-size: 10px; color: var(--sap-text-muted);">Organize functionality into modules</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: #ffc107;">table_view</span>
+                        <h6 style="margin: 10px 0; font-size: 12px;">3. Define Entities</h6>
+                        <p style="font-size: 10px; color: var(--sap-text-muted);">Create data structures and forms</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-sap" data-bs-dismiss="modal">
+                    <span class="material-symbols-outlined">close</span>
+                    Close
+                </button>
+                <a href="/admin/" class="btn-sap btn-primary">
+                    <span class="material-symbols-outlined">settings</span>
+                    Open System Configuration
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh stats every 5 minutes
+    setInterval(function() {
+        // In a real application, you'd update stats via AJAX
+        console.log('Auto-refresh stats...');
+    }, 5 * 60 * 1000);
+    
+    // Show welcome modal for first-time users
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if not favorite_modules and applications|length == 0 %}
+        const welcomeModal = new bootstrap.Modal(document.getElementById('welcomeModal'));
+        setTimeout(() => {
+            welcomeModal.show();
+        }, 1000);
+        {% endif %}
+        
+        console.log('Dashboard loaded successfully');
+    });
+</script>
+{% endblock %}

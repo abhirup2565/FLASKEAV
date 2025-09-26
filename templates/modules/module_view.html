@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}{{ module.name }} - Port Management System{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ module.name }}</h1>
+    <nav class="content-breadcrumb">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <span> / </span>
+        <span>{{ module.application.name }}</span>
+        <span> / </span>
+        <span>{{ module.name }}</span>
+    </nav>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-section">
+        <button class="btn-sap" onclick="window.history.back()">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Back
+        </button>
+    </div>
+    
+    <div class="toolbar-separator"></div>
+    
+    <div class="toolbar-section">
+        <button class="btn-sap" onclick="toggleFavorite(event, {{ module.id }})">
+            <span class="material-symbols-outlined">star_border</span>
+            Add to Favorites
+        </button>
+        <button class="btn-sap" onclick="refreshModule()">
+            <span class="material-symbols-outlined">refresh</span>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Module Description -->
+{% if module.description %}
+<div class="card-sap mb-3">
+    <div class="card-body">
+        <p style="margin: 0; font-size: 12px; color: var(--sap-text-muted);">
+            {{ module.description }}
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Entity Types Grid -->
+{% if entity_types %}
+<div class="card-sap">
+    <div class="card-header">
+        <span class="material-symbols-outlined" style="margin-right: 5px;">table_view</span>
+        Entity Types ({{ entity_types|length }})
+    </div>
+    <div class="card-body">
+        <div class="module-grid">
+            {% for entity_type in entity_types %}
+            <a href="{{ url_for('entity_list', entity_type_id=entity_type.id) }}" class="module-card">
+                <div class="module-icon">
+                    <span class="material-symbols-outlined">{{ entity_type.icon or 'table_view' }}</span>
+                </div>
+                <div class="module-name">{{ entity_type.name }}</div>
+                <div class="module-description">{{ entity_type.description or '' }}</div>
+                
+                <!-- Entity Type Info -->
+                <div style="margin-top: 8px; font-size: 10px; color: var(--sap-text-muted); display: flex; justify-content: between; align-items: center;">
+                    <div>
+                        {% if entity_type.is_master %}
+                        <span class="badge bg-info" style="font-size: 9px;">Master</span>
+                        {% endif %}
+                        {% if entity_type.is_transactional %}
+                        <span class="badge bg-success" style="font-size: 9px;">Transactional</span>
+                        {% endif %}
+                    </div>
+                    <div style="margin-left: auto;">
+                        {% set instance_count = entity_type.entity_instances.filter_by(is_active=True).count() %}
+                        <span class="material-symbols-outlined" style="font-size: 12px; margin-right: 2px;">description</span>
+                        {{ instance_count }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card-sap">
+    <div class="card-body text-center" style="padding: 40px;">
+        <span class="material-symbols-outlined" style="font-size: 64px; opacity: 0.3; color: var(--sap-text-muted);">table_view</span>
+        <h5 style="margin-top: 15px; font-size: 14px; color: var(--sap-text-muted);">No Entity Types</h5>
+        <p style="font-size: 11px; color: var(--sap-text-muted); margin-bottom: 20px;">
+            This module doesn't have any entity types configured yet.
+        </p>
+        <a href="/admin/" class="btn-sap btn-primary">
+            <span class="material-symbols-outlined">settings</span>
+            Configure Module
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Module Statistics -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card-sap">
+            <div class="card-body text-center">
+                <h4 style="font-size: 20px; font-weight: 600; margin-bottom: 5px; color: var(--sap-blue);">
+                    {{ entity_types|length }}
+                </h4>
+                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Entity Types</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card-sap">
+            <div class="card-body text-center">
+                <h4 style="font-size: 20px; font-weight: 600; margin-bottom: 5px; color: #28a745;">
+                    {% set total_instances = 0 %}
+                    {% for entity_type in entity_types %}
+                        {% set total_instances = total_instances + entity_type.entity_instances.filter_by(is_active=True).count() %}
+                    {% endfor %}
+                    {{ total_instances }}
+                </h4>
+                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Total Records</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card-sap">
+            <div class="card-body text-center">
+                <h4 style="font-size: 20px; font-weight: 600; margin-bottom: 5px; color: #ffc107;">
+                    {% set master_entities = entity_types|selectattr('is_master')|list|length %}
+                    {{ master_entities }}
+                </h4>
+                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Master Entities</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card-sap">
+            <div class="card-body text-center">
+                <h4 style="font-size: 20px; font-weight: 600; margin-bottom: 5px; color: #17a2b8;">
+                    {% set transactional_entities = entity_types|selectattr('is_transactional')|list|length %}
+                    {{ transactional_entities }}
+                </h4>
+                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Transactional</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function refreshModule() {
+        const btn = event.target.closest('button');
+        const hideLoading = showLoading(btn);
+        
+        // Refresh the page
+        setTimeout(() => {
+            hideLoading();
+            window.location.reload();
+        }, 1000);
+    }
+    
+    // Update favorite star state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if favorite_modules %}
+        const favoriteModules = {{ (favorite_modules | map(attribute='id') | list) | tojson }};
+        {% else %}
+        const favoriteModules = [];
+        {% endif %}
+        const moduleId = {{ module.id }};
+        
+        if (favoriteModules.includes(moduleId)) {
+            const starBtn = document.querySelector('[onclick*="toggleFavorite"]');
+            if (starBtn) {
+                const icon = starBtn.querySelector('.material-symbols-outlined');
+                icon.textContent = 'star';
+                starBtn.innerHTML = starBtn.innerHTML.replace('Add to Favorites', 'Remove from Favorites');
+            }
+        }
+    });
+</script>
+{% endblock %}

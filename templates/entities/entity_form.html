@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {{ "Create" if form_action == "create" else "Edit" }} {{ entity_type.name }} - Port Management System
+{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">
+        {{ "Create" if form_action == "create" else "Edit" }} {{ entity_type.name }}
+    </h1>
+    <nav class="content-breadcrumb">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <span> / </span>
+        <a href="{{ url_for('module_view', module_id=entity_type.module_id) }}">{{ entity_type.module.name }}</a>
+        <span> / </span>
+        <a href="{{ url_for('entity_list', entity_type_id=entity_type.id) }}">{{ entity_type.name }}</a>
+        <span> / </span>
+        <span>{{ "Create" if form_action == "create" else "Edit" }}</span>
+    </nav>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-section">
+        <a href="{{ url_for('entity_list', entity_type_id=entity_type.id) }}" class="btn-sap">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Back to List
+        </a>
+    </div>
+    
+    {% if instance and form_action == "edit" %}
+    <div class="toolbar-separator"></div>
+    
+    <div class="toolbar-section">
+        <a href="{{ url_for('entity_detail', entity_type_id=entity_type.id, instance_id=instance.id) }}" class="btn-sap">
+            <span class="material-symbols-outlined">visibility</span>
+            View Details
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Form Content -->
+<div class="card-sap">
+    <div class="card-header">
+        <span class="material-symbols-outlined" style="margin-right: 5px;">{{ entity_type.icon or 'edit' }}</span>
+        {{ "Create New" if form_action == "create" else "Edit" }} {{ entity_type.name }}
+    </div>
+    <div class="card-body">
+        <form method="POST" class="form-sap" id="entityForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            
+            {% if form_definition.layout_type.value == 'TWO_COLUMN' %}
+            <div class="row">
+                {% for field in form_fields %}
+                {% if field.is_visible %}
+                <div class="col-md-{{ 12 // 2 if form_definition.layout_type.value == 'TWO_COLUMN' else 12 }} mb-3">
+                    {% include 'entities/field_render.html' %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% elif form_definition.layout_type.value == 'THREE_COLUMN' %}
+            <div class="row">
+                {% for field in form_fields %}
+                {% if field.is_visible %}
+                <div class="col-md-4 mb-3">
+                    {% include 'entities/field_render.html' %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <!-- Single Column Layout -->
+            {% for field in form_fields %}
+            {% if field.is_visible %}
+            <div class="mb-3">
+                {% include 'entities/field_render.html' %}
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            
+            <div class="mt-4 pt-3" style="border-top: 1px solid var(--sap-border);">
+                <button type="submit" class="btn-sap btn-primary" id="submitBtn">
+                    <span class="material-symbols-outlined">save</span>
+                    {{ "Create" if form_action == "create" else "Update" }}
+                </button>
+                <a href="{{ url_for('entity_list', entity_type_id=entity_type.id) }}" class="btn-sap" style="margin-left: 10px;">
+                    <span class="material-symbols-outlined">cancel</span>
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('entityForm');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            // Show loading state
+            const hideLoading = showLoading(submitBtn);
+            
+            // Basic client-side validation
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.classList.add('is-invalid');
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                hideLoading();
+                alert('Please fill in all required fields.');
+                return false;
+            }
+            
+            // Form will submit normally after this
+        });
+        
+        // Remove validation styling on input
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+            });
+        });
+        
+        // Auto-generate instance code if needed (for create form)
+        {% if form_action == 'create' %}
+        const entityTypeCode = '{{ entity_type.code }}';
+        const instanceCodeField = document.querySelector('[name="attr_INSTANCE_CODE"]');
+        
+        if (instanceCodeField && !instanceCodeField.value) {
+            // Generate a simple instance code
+            const timestamp = new Date().getTime().toString().slice(-6);
+            instanceCodeField.value = entityTypeCode + '_' + timestamp;
+        }
+        {% endif %}
+    });
+    
+    // Field-specific handlers
+    function handleLookupChange(selectElement) {
+        // Handle cascading lookups or dependent fields
+        console.log('Lookup changed:', selectElement.name, selectElement.value);
+    }
+    
+    // Add change handlers to select elements
+    document.querySelectorAll('select').forEach(select => {
+        select.addEventListener('change', function() {
+            handleLookupChange(this);
+        });
+    });
+</script>
+
+<style>
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 12px 12px;
+    }
+    
+    .form-control:focus {
+        border-color: var(--sap-blue);
+        box-shadow: 0 0 0 0.2rem rgba(0, 112, 242, 0.25);
+    }
+    
+    .form-check-input:focus {
+        border-color: var(--sap-blue);
+        box-shadow: 0 0 0 0.2rem rgba(0, 112, 242, 0.25);
+    }
+</style>
+{% endblock %}

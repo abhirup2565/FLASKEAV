@@ -1,0 +1,760 @@
+<!-- templates/admin/model_form.html -->
+{% extends "admin/base.html" %}
+
+{% block title %}{{ action.title() }} {{ config.name }} - Admin{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('custom_admin.dashboard') }}">
+                <i class="fas fa-home"></i> Admin
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('custom_admin.model_list', model_name=model_name) }}">
+                {{ config.name_plural }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active">
+            {{ action.title() }} {{ config.name }}
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="{{ config.icon }}"></i>
+        {{ action.title() }} {{ config.name }}
+    </h1>
+    {% if action == 'edit' and instance %}
+    <p class="page-subtitle">
+        {% if instance.name is defined %}
+        Editing: {{ instance.name }}
+        {% elif instance.code is defined %}
+        Editing: {{ instance.code }}
+        {% elif instance.username is defined %}
+        Editing: {{ instance.username }}
+        {% else %}
+        ID: {{ instance.id }}
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-{{ 'plus' if action == 'create' else 'edit' }}"></i>
+                    {{ config.name }} Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="modelForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    {% set form_fields = config.form_fields %}
+                    {% set readonly_fields = config.get('readonly_fields', []) %}
+                    
+                    <!-- Dynamic Form Fields -->
+                    {% for field_name, field_config in form_fields.items() %}
+                    {% if field_name not in readonly_fields %}
+                    <div class="form-group">
+                        {% set field_label = field_config.get('label', field_name.replace('_', ' ').title()) %}
+                        <label for="{{ field_name }}" class="form-label">
+                            {{ field_label }}
+                            {% if field_config.get('required', False) %}
+                            <span class="text-danger">*</span>
+                            {% endif %}
+                        </label>
+                        
+                        {% set current_value = current_values.get(field_name) if current_values else None %}
+                        {% set current_value = current_value if current_value is not none else field_config.get('default', '') %}
+                        
+                        <!-- Text Input -->
+                        {% if field_config.type == 'text' %}
+                        <input type="text" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value }}"
+                               {% if field_config.get('max_length') %}maxlength="{{ field_config.max_length }}"{% endif %}
+                               {% if field_config.get('required', False) %}required{% endif %}
+                               placeholder="{{ field_config.get('placeholder', '') }}">
+                        
+                        <!-- Email Input -->
+                        {% elif field_config.type == 'email' %}
+                        <input type="email" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value }}"
+                               {% if field_config.get('required', False) %}required{% endif %}
+                               placeholder="{{ field_config.get('placeholder', 'Enter email address') }}">
+                        
+                        <!-- Password Input -->
+                        {% elif field_config.type == 'password' %}
+                        <input type="password" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               {% if field_config.get('required', False) and action == 'create' %}required{% endif %}
+                               placeholder="{{ field_config.get('placeholder', 'Enter password') }}">
+                        {% if action == 'edit' %}
+                        <small class="form-text text-muted">Leave blank to keep current password</small>
+                        {% endif %}
+                        
+                        <!-- Number Input -->
+                        {% elif field_config.type == 'number' %}
+                        <input type="number" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value }}"
+                               {% if field_config.get('min') is defined %}min="{{ field_config.min }}"{% endif %}
+                               {% if field_config.get('max') is defined %}max="{{ field_config.max }}"{% endif %}
+                               {% if field_config.get('step') is defined %}step="{{ field_config.step }}"{% endif %}
+                               {% if field_config.get('required', False) %}required{% endif %}
+                               placeholder="{{ field_config.get('placeholder', '0') }}">
+                        
+                        <!-- Textarea -->
+                        {% elif field_config.type == 'textarea' %}
+                        <textarea class="form-control" 
+                                  id="{{ field_name }}" 
+                                  name="{{ field_name }}"
+                                  rows="{{ field_config.get('rows', 3) }}"
+                                  {% if field_config.get('required', False) %}required{% endif %}
+                                  placeholder="{{ field_config.get('placeholder', '') }}">{{ current_value }}</textarea>
+                        
+                        <!-- Select Dropdown -->
+                        {% elif field_config.type == 'select' %}
+                        <select class="form-control" 
+                                id="{{ field_name }}" 
+                                name="{{ field_name }}"
+                                {% if field_config.get('required', False) %}required{% endif %}
+                                {% if field_config.get('source') %}data-dependent="{{ field_config.get('dependent_field', '') }}" data-source="{{ field_config.source }}"{% endif %}>
+                            <option value="">Select {{ field_label }}...</option>
+                            {% if form_choices.get(field_name) %}
+                                {% for choice_value, choice_label in form_choices[field_name] %}
+                                <option value="{{ choice_value }}" 
+                                        {% if current_value and (current_value|string == choice_value|string) %}selected{% endif %}>
+                                    {{ choice_label }}
+                                </option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                        
+                        <!-- Special handling for Form Field Configuration dropdown fields -->
+                        {% if model_name == 'form_field_configuration' %}
+                            {% if field_name == 'dropdown_source_entity_id' %}
+                            <small class="form-text text-muted">Select the entity type to source dropdown options from</small>
+                            {% elif field_name == 'dropdown_source_attribute_id' %}
+                            <small class="form-text text-muted">Select the attribute that provides the dropdown values</small>
+                            {% elif field_name == 'dropdown_display_attribute_id' %}
+                            <small class="form-text text-muted">Optional: Select different attribute for display text</small>
+                            {% endif %}
+                        {% endif %}
+                        
+                        <!-- Checkbox -->
+                        {% elif field_config.type == 'checkbox' %}
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" 
+                                   class="custom-control-input" 
+                                   id="{{ field_name }}" 
+                                   name="{{ field_name }}"
+                                   value="true"
+                                   {% if current_value %}checked{% endif %}>
+                            <label class="custom-control-label" for="{{ field_name }}">
+                                {{ field_config.get('checkbox_label', 'Yes') }}
+                            </label>
+                        </div>
+                        
+                        <!-- Special checkbox help for Form Field Configuration -->
+                        {% if model_name == 'form_field_configuration' and field_name == 'show_unique_values_only' %}
+                        <small class="form-text text-muted">When checked, only unique values will be shown in dropdown</small>
+                        {% endif %}
+                        
+                        <!-- Date Input -->
+                        {% elif field_config.type == 'date' %}
+                        <input type="date" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value.strftime('%Y-%m-%d') if current_value else '' }}"
+                               {% if field_config.get('required', False) %}required{% endif %}>
+                        
+                        <!-- DateTime Input -->
+                        {% elif field_config.type == 'datetime-local' %}
+                        <input type="datetime-local" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value.strftime('%Y-%m-%dT%H:%M') if current_value else '' }}"
+                               {% if field_config.get('required', False) %}required{% endif %}>
+                        
+                        <!-- JSON Editor -->
+                        {% elif field_config.type == 'json' %}
+                        <textarea class="form-control json-editor" 
+                                  id="{{ field_name }}" 
+                                  name="{{ field_name }}"
+                                  rows="6"
+                                  placeholder='{"key": "value"}'
+                                  data-json-field="true">{{ current_value }}</textarea>
+                        <small class="form-text text-muted">Enter valid JSON data</small>
+                        
+                        {% else %}
+                        <!-- Default text input for any other type -->
+                        <input type="text" 
+                               class="form-control" 
+                               id="{{ field_name }}" 
+                               name="{{ field_name }}"
+                               value="{{ current_value }}"
+                               placeholder="{{ field_config.get('placeholder', '') }}"
+                               {% if field_config.get('max_length') %}maxlength="{{ field_config.max_length }}"{% endif %}
+                               {% if field_config.get('required', False) %}required{% endif %}>
+                        {% endif %}
+                        
+                        <!-- Help Text -->
+                        {% if field_config.get('help_text') %}
+                        <small class="form-text text-muted">{{ field_config.help_text }}</small>
+                        {% endif %}
+                        
+                        <!-- Validation Feedback -->
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Form Actions -->
+                    <div class="form-group">
+                        <div class="btn-toolbar justify-content-between">
+                            <div class="btn-group">
+                                <button type="submit" class="btn btn-primary" id="saveBtn">
+                                    <i class="fas fa-save"></i>
+                                    {{ 'Create' if action == 'create' else 'Update' }} {{ config.name }}
+                                </button>
+                                
+                                {% if action == 'edit' %}
+                                <button type="submit" name="save_and_continue" class="btn btn-outline-primary" id="saveAndContinueBtn">
+                                    <i class="fas fa-save"></i>
+                                    Save and Continue Editing
+                                </button>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="btn-group">
+                                {% if action == 'create' %}
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                                    <i class="fas fa-undo"></i>
+                                    Reset
+                                </button>
+                                {% endif %}
+                                
+                                <a href="{{ url_for('custom_admin.model_list', model_name=model_name) }}" 
+                                   class="btn btn-secondary">
+                                    <i class="fas fa-times"></i>
+                                    Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar with additional info -->
+    <div class="col-lg-4">
+        {% if action == 'edit' and instance %}
+        <!-- Instance Information -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i>
+                    {{ config.name }} Details
+                </h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>ID:</strong></td>
+                        <td>{{ instance.id }}</td>
+                    </tr>
+                    {% if instance.created_at is defined and instance.created_at %}
+                    <tr>
+                        <td><strong>Created:</strong></td>
+                        <td>
+                            <small>{{ instance.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% if instance.created_by is defined and instance.created_by %}
+                            <br><small class="text-muted">by {{ instance.created_by }}</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if instance.updated_at is defined and instance.updated_at %}
+                    <tr>
+                        <td><strong>Updated:</strong></td>
+                        <td>
+                            <small>{{ instance.updated_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% if instance.updated_by is defined and instance.updated_by %}
+                            <br><small class="text-muted">by {{ instance.updated_by }}</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+                
+                <hr>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('custom_admin.model_detail', model_name=model_name, object_id=instance.id) }}" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i>
+                        View Details
+                    </a>
+                    
+                    <form method="POST" 
+                          action="{{ url_for('custom_admin.model_delete', model_name=model_name, object_id=instance.id) }}" 
+                          style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" 
+                                class="btn btn-outline-danger btn-sm" 
+                                onclick="return confirmDelete('{{ config.name }}')">
+                            <i class="fas fa-trash"></i>
+                            Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Help Card -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-question-circle"></i>
+                    Help & Tips
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-lightbulb text-warning"></i>
+                        <small>Fields marked with <span class="text-danger">*</span> are required</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-keyboard text-info"></i>
+                        <small>Use <kbd>Ctrl+S</kbd> to save quickly</small>
+                    </li>
+                    {% if action == 'create' %}
+                    <li class="mb-2">
+                        <i class="fas fa-plus text-success"></i>
+                        <small>After creating, you can add related records</small>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Special help for Form Field Configuration -->
+                    {% if model_name == 'form_field_configuration' %}
+                    <li class="mb-2">
+                        <i class="fas fa-info text-info"></i>
+                        <small><strong>Dropdown Setup:</strong> For SELECT/MULTISELECT fields, configure dropdown source entity and attributes</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-table text-primary"></i>
+                        <small><strong>Source Entity:</strong> Choose master or transactional entity for dropdown data</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-columns text-secondary"></i>
+                        <small><strong>Source Attribute:</strong> Column that provides dropdown values</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-eye text-success"></i>
+                        <small><strong>Display Attribute:</strong> Optional - different column for display text</small>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Related Actions -->
+        {% if action == 'edit' and instance %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-link"></i>
+                    Related Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Add related model quick links based on relationships -->
+                {% if model_name == 'application' %}
+                <a href="{{ url_for('custom_admin.model_list', model_name='module') }}?filter_application_id={{ instance.id }}" 
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                    <i class="fas fa-folder"></i>
+                    View Modules
+                </a>
+                {% elif model_name == 'module' %}
+                <a href="{{ url_for('custom_admin.model_list', model_name='entity_type') }}?filter_module_id={{ instance.id }}" 
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                    <i class="fas fa-table"></i>
+                    View Entity Types
+                </a>
+                {% elif model_name == 'entity_type' %}
+                <a href="{{ url_for('custom_admin.model_list', model_name='attribute_definition') }}?filter_entity_type_id={{ instance.id }}" 
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                    <i class="fas fa-list"></i>
+                    View Attributes
+                </a>
+                <a href="{{ url_for('custom_admin.model_list', model_name='form_definition') }}?filter_entity_type_id={{ instance.id }}" 
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                    <i class="fas fa-edit"></i>
+                    View Forms
+                </a>
+                {% elif model_name == 'form_definition' %}
+                <a href="{{ url_for('custom_admin.model_list', model_name='form_field_configuration') }}?filter_form_definition_id={{ instance.id }}" 
+                   class="btn btn-outline-secondary btn-sm btn-block">
+                    <i class="fas fa-wpforms"></i>
+                    View Form Fields
+                </a>
+                {% endif %}
+                
+                <a href="{{ url_for('custom_admin.model_create', model_name=model_name) }}" 
+                   class="btn btn-outline-primary btn-sm btn-block">
+                    <i class="fas fa-plus"></i>
+                    Create Another {{ config.name }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Form Field Configuration Dependent Dropdowns Modal -->
+{% if model_name == 'form_field_configuration' %}
+<div class="modal fade" id="dropdownConfigHelp" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-question-circle"></i>
+                    Dropdown Configuration Guide
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <h6>How to Configure Dropdowns:</h6>
+                <ol>
+                    <li><strong>Field Type:</strong> Set to SELECT or MULTISELECT</li>
+                    <li><strong>Source Entity:</strong> Choose the entity type that contains the data (e.g., Vessel, Customer)</li>
+                    <li><strong>Source Attribute:</strong> Choose the column that provides the actual values</li>
+                    <li><strong>Display Attribute:</strong> Optional - choose a different column for user-friendly display</li>
+                    <li><strong>Unique Values Only:</strong> Check to show only distinct values</li>
+                </ol>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-lightbulb"></i>
+                    <strong>Example:</strong> For a "Vessel Name" dropdown:
+                    <ul class="mb-0 mt-2">
+                        <li>Source Entity: Vessel (master)</li>
+                        <li>Source Attribute: VESSEL_NAME</li>
+                        <li>Display Attribute: VESSEL_NAME (same)</li>
+                        <li>Unique Values: Yes</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add help button for form field config -->
+<div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#dropdownConfigHelp">
+        <i class="fas fa-question-circle"></i>
+        Help
+    </button>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Form validation
+        $('#modelForm').on('submit', function(e) {
+            var isValid = validateForm();
+            if (!isValid) {
+                e.preventDefault();
+                showAlert('Please fix the errors below', 'danger');
+                return false;
+            }
+            
+            // Show loading state
+            setLoading('#saveBtn', true);
+            if ($('#saveAndContinueBtn').length) {
+                setLoading('#saveAndContinueBtn', true);
+            }
+        });
+        
+        // Real-time validation
+        $('.form-control').on('blur', function() {
+            validateField($(this));
+        });
+        
+        // JSON field formatting
+        $('[data-json-field="true"]').each(function() {
+            try {
+                var jsonText = $(this).val();
+                if (jsonText && jsonText.trim()) {
+                    var formatted = JSON.stringify(JSON.parse(jsonText), null, 2);
+                    $(this).val(formatted);
+                }
+            } catch (e) {
+                // Invalid JSON, leave as is
+            }
+        });
+        
+        // JSON validation on change
+        $('[data-json-field="true"]').on('blur', function() {
+            var $field = $(this);
+            var jsonText = $field.val().trim();
+            
+            if (jsonText) {
+                try {
+                    JSON.parse(jsonText);
+                    $field.removeClass('is-invalid').addClass('is-valid');
+                    $field.siblings('.invalid-feedback').text('');
+                } catch (e) {
+                    $field.removeClass('is-valid').addClass('is-invalid');
+                    $field.siblings('.invalid-feedback').text('Invalid JSON format');
+                }
+            } else {
+                $field.removeClass('is-invalid is-valid');
+            }
+        });
+        
+        // Dependent dropdowns for Form Field Configuration
+        {% if model_name == 'form_field_configuration' %}
+        
+        // When entity type changes, update attribute dropdowns
+        $('#dropdown_source_entity_id').on('change', function() {
+            var entityId = $(this).val();
+            var sourceAttrSelect = $('#dropdown_source_attribute_id');
+            var displayAttrSelect = $('#dropdown_display_attribute_id');
+            
+            // Clear existing options
+            sourceAttrSelect.html('<option value="">Select Source Attribute...</option>');
+            displayAttrSelect.html('<option value="">Select Display Attribute...</option>');
+            
+            if (entityId) {
+                // Load attributes for the selected entity
+                loadEntityAttributes(entityId, sourceAttrSelect, displayAttrSelect);
+            }
+        });
+        
+        // When field type changes, show/hide dropdown configuration
+        $('#field_type').on('change', function() {
+            var fieldType = $(this).val();
+            var dropdownFields = $('#dropdown_source_entity_id, #dropdown_source_attribute_id, #dropdown_display_attribute_id, #show_unique_values_only');
+            
+            if (fieldType === 'SELECT' || fieldType === 'MULTISELECT') {
+                dropdownFields.closest('.form-group').show();
+                showAlert('Configure dropdown source for this SELECT field below', 'info');
+            } else {
+                dropdownFields.closest('.form-group').hide();
+            }
+        });
+        
+        // Trigger on page load
+        $('#field_type').trigger('change');
+        
+        function loadEntityAttributes(entityId, sourceSelect, displaySelect) {
+            $.ajax({
+                url: '/custom-admin/api/entity/' + entityId + '/attributes',
+                method: 'GET',
+                success: function(attributes) {
+                    attributes.forEach(function(attr) {
+                        var option = '<option value="' + attr.id + '">' + attr.name + ' (' + attr.code + ')</option>';
+                        sourceSelect.append(option);
+                        displaySelect.append(option);
+                    });
+                },
+                error: function() {
+                    showAlert('Error loading entity attributes', 'danger');
+                }
+            });
+        }
+        
+        {% endif %}
+        
+        // Keyboard shortcuts
+        $(document).on('keydown', function(e) {
+            // Ctrl+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                $('#saveBtn').click();
+            }
+            
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+                    window.location.href = '{{ url_for("custom_admin.model_list", model_name=model_name) }}';
+                }
+            }
+        });
+        
+        // Warn before leaving with unsaved changes
+        var originalFormData = $('#modelForm').serialize();
+        
+        $(window).on('beforeunload', function(e) {
+            var currentFormData = $('#modelForm').serialize();
+            if (originalFormData !== currentFormData) {
+                var message = 'You have unsaved changes. Are you sure you want to leave?';
+                e.returnValue = message;
+                return message;
+            }
+        });
+        
+        // Remove beforeunload when form is submitted
+        $('#modelForm').on('submit', function() {
+            $(window).off('beforeunload');
+        });
+        
+        // Character counters for text fields
+        $('.form-control[maxlength]').each(function() {
+            var $field = $(this);
+            var maxLength = $field.attr('maxlength');
+            var $counter = $('<small class="form-text text-muted char-counter"></small>');
+            $field.after($counter);
+            
+            function updateCounter() {
+                var remaining = maxLength - $field.val().length;
+                $counter.text(remaining + ' characters remaining');
+                
+                if (remaining < 10) {
+                    $counter.removeClass('text-muted').addClass('text-warning');
+                } else if (remaining < 0) {
+                    $counter.removeClass('text-muted text-warning').addClass('text-danger');
+                } else {
+                    $counter.removeClass('text-warning text-danger').addClass('text-muted');
+                }
+            }
+            
+            $field.on('input', updateCounter);
+            updateCounter();
+        });
+        
+        // Auto-resize textareas
+        $('textarea').each(function() {
+            $(this).on('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        });
+    });
+    
+    function validateForm() {
+        var isValid = true;
+        
+        // Clear previous validation
+        $('.form-control').removeClass('is-invalid is-valid');
+        $('.invalid-feedback').text('');
+        
+        // Validate required fields
+        $('[required]').each(function() {
+            if (!validateField($(this))) {
+                isValid = false;
+            }
+        });
+        
+        // Validate JSON fields
+        $('[data-json-field="true"]').each(function() {
+            var $field = $(this);
+            var jsonText = $field.val().trim();
+            
+            if (jsonText) {
+                try {
+                    JSON.parse(jsonText);
+                } catch (e) {
+                    $field.addClass('is-invalid');
+                    $field.siblings('.invalid-feedback').text('Invalid JSON format');
+                    isValid = false;
+                }
+            }
+        });
+        
+        // Validate email fields
+        $('input[type="email"]').each(function() {
+            var $field = $(this);
+            var email = $field.val().trim();
+            
+            if (email && !isValidEmail(email)) {
+                $field.addClass('is-invalid');
+                $field.siblings('.invalid-feedback').text('Please enter a valid email address');
+                isValid = false;
+            }
+        });
+        
+        return isValid;
+    }
+    
+    function validateField($field) {
+        var isValid = true;
+        var value = $field.val().trim();
+        var fieldType = $field.attr('type');
+        
+        // Required field validation
+        if ($field.prop('required') && !value) {
+            $field.addClass('is-invalid');
+            $field.siblings('.invalid-feedback').text('This field is required');
+            isValid = false;
+        }
+        // Email validation
+        else if (fieldType === 'email' && value && !isValidEmail(value)) {
+            $field.addClass('is-invalid');
+            $field.siblings('.invalid-feedback').text('Please enter a valid email address');
+            isValid = false;
+        }
+        // Number validation
+        else if (fieldType === 'number' && value && isNaN(value)) {
+            $field.addClass('is-invalid');
+            $field.siblings('.invalid-feedback').text('Please enter a valid number');
+            isValid = false;
+        }
+        else {
+            $field.removeClass('is-invalid').addClass('is-valid');
+            $field.siblings('.invalid-feedback').text('');
+        }
+        
+        return isValid;
+    }
+    
+    function isValidEmail(email) {
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    function resetForm() {
+        if (confirm('Are you sure you want to reset the form? All changes will be lost.')) {
+            $('#modelForm')[0].reset();
+            $('.form-control').removeClass('is-invalid is-valid');
+            $('.invalid-feedback').text('');
+        }
+    }
+    
+    function confirmDelete(itemType) {
+        return confirm('Are you sure you want to delete this ' + itemType + '? This action cannot be undone.');
+    }
+</script>
+{% endblock %}
+                

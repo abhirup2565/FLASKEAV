@@ -1,0 +1,29 @@
+{% extends 'admin/base.html' %}
+
+{% block body %}
+<div class="admin-full-width">
+    <h2>Entity Data Viewer</h2>
+    <p>Browse and view data for all entity types in the system.</p>
+    
+    {% if entity_types %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px;">
+        {% for entity_type in entity_types %}
+        <div style="border: 1px solid #ddd; border-radius: 4px; padding: 15px; background: white;">
+            <div style="font-weight: 600; margin-bottom: 8px;">{{ entity_type.name }}</div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 10px;">{{ entity_type.description or 'No description' }}</div>
+            <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
+                Module: {{ entity_type.module.name }}<br>
+                Records: {{ entity_type.entity_instances.count() }}
+            </div>
+            <a href="{{ url_for('.view_entity_data', entity_type_id=entity_type.id) }}" 
+               class="btn btn-primary btn-sm">View Data</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center" style="margin-top: 50px;">
+        <p>No entity types found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,944 @@
+<!-- templates/admin/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Admin - Port Management System{% endblock %}</title>
+    
+    <!-- Bootstrap 4 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom Admin CSS -->
+    <style>
+        :root {
+            --admin-primary: #007bff;
+            --admin-secondary: #6c757d;
+            --admin-success: #28a745;
+            --admin-info: #17a2b8;
+            --admin-warning: #ffc107;
+            --admin-danger: #dc3545;
+            --admin-light: #f8f9fa;
+            --admin-dark: #343a40;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f6f9;
+            font-size: 14px;
+        }
+        
+        /* Sidebar */
+        .admin-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            height: 100vh;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            overflow-y: auto;
+            z-index: 1030;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar-brand {
+            padding: 20px 15px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .sidebar-brand .brand-text {
+            transition: opacity 0.3s ease;
+        }
+        
+        .admin-sidebar.collapsed .brand-text {
+            opacity: 0;
+        }
+        
+        .sidebar-nav {
+            padding: 15px 0;
+        }
+        
+        .nav-category {
+            margin-bottom: 20px;
+        }
+        
+        .nav-category-title {
+            padding: 8px 15px;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 5px;
+            transition: opacity 0.3s ease;
+        }
+        
+        .admin-sidebar.collapsed .nav-category-title {
+            opacity: 0;
+            height: 1px;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+        
+        .nav-item {
+            margin: 1px 8px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            position: relative;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            text-decoration: none;
+            transform: translateX(2px);
+        }
+        
+        .nav-link.active {
+            background: var(--admin-primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+        
+        .nav-link i {
+            width: 18px;
+            margin-right: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .nav-link-text {
+            transition: opacity 0.3s ease;
+        }
+        
+        .admin-sidebar.collapsed .nav-link-text {
+            opacity: 0;
+        }
+        
+        /* Tooltip for collapsed sidebar */
+        .admin-sidebar.collapsed .nav-link {
+            justify-content: center;
+            position: relative;
+        }
+        
+        .admin-sidebar.collapsed .nav-link::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .admin-sidebar.collapsed .nav-link:hover::after {
+            opacity: 1;
+        }
+        
+        /* Main content */
+        .admin-main {
+            margin-left: 250px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .admin-main.expanded {
+            margin-left: 70px;
+        }
+        
+        /* Header */
+        .admin-header {
+            background: white;
+            padding: 15px 25px;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--admin-secondary);
+            margin-right: 15px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            color: var(--admin-primary);
+        }
+        
+        .breadcrumb {
+            background: none;
+            padding: 0;
+            margin: 0;
+            font-size: 13px;
+        }
+        
+        .breadcrumb-item a {
+            color: var(--admin-primary);
+            text-decoration: none;
+        }
+        
+        .breadcrumb-item.active {
+            font-weight: 600;
+        }
+        
+        /* Content */
+        .admin-content {
+            padding: 25px;
+        }
+        
+        .page-header {
+            margin-bottom: 25px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--admin-dark);
+            margin: 0;
+        }
+        
+        .page-subtitle {
+            color: var(--admin-secondary);
+            margin: 5px 0 0 0;
+            font-size: 14px;
+        }
+        
+        /* Cards */
+        .card {
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 15px 20px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        /* Tables */
+        .table {
+            font-size: 13px;
+            margin-bottom: 0;
+        }
+        
+        .table th {
+            border-top: none;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: var(--admin-dark);
+            background: #f8f9fa;
+            padding: 12px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .table td {
+            padding: 12px 8px;
+            vertical-align: middle;
+            border-top: 1px solid #f0f0f0;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        /* Buttons */
+        .btn {
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 8px 16px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .btn-primary {
+            background: var(--admin-primary);
+            border-color: var(--admin-primary);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+        }
+        
+        /* Forms */
+        .form-group label {
+            font-weight: 600;
+            color: var(--admin-dark);
+            margin-bottom: 5px;
+        }
+        
+        .form-control {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        /* Alerts */
+        .alert {
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid var(--admin-success);
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid var(--admin-danger);
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid var(--admin-warning);
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid var(--admin-info);
+        }
+        
+        /* Badges */
+        .badge {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 8px;
+        }
+        
+        /* Action buttons */
+        .btn-action {
+            padding: 4px 8px;
+            margin: 0 2px;
+            border-radius: 4px;
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-view {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .btn-view:hover {
+            background: #1976d2;
+            color: white;
+        }
+        
+        .btn-edit {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .btn-edit:hover {
+            background: #7b1fa2;
+            color: white;
+        }
+        
+        .btn-delete {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .btn-delete:hover {
+            background: #c62828;
+            color: white;
+        }
+        
+        /* Stats cards */
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.2s ease;
+            margin-bottom: 20px;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .stats-number {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stats-label {
+            color: var(--admin-secondary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        /* Loading */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .admin-sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .admin-main {
+                margin-left: 0;
+            }
+            
+            .admin-main.expanded {
+                margin-left: 0;
+            }
+            
+            .admin-content {
+                padding: 15px;
+            }
+        }
+        
+        /* Checkbox styling */
+        .custom-checkbox {
+            margin-right: 10px;
+        }
+        
+        /* Pagination */
+        .pagination {
+            margin: 20px 0;
+        }
+        
+        .page-link {
+            color: var(--admin-primary);
+            border-color: #dee2e6;
+        }
+        
+        .page-item.active .page-link {
+            background-color: var(--admin-primary);
+            border-color: var(--admin-primary);
+        }
+        
+        /* JSON Editor */
+        .json-editor {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        
+        /* Search and filter */
+        .filters-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-toggle {
+            cursor: pointer;
+            color: var(--admin-primary);
+            font-weight: 500;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="admin-sidebar" id="adminSidebar">
+        <div class="sidebar-brand">
+            <h4>
+                <i class="fas fa-anchor"></i>
+                <span class="brand-text">PortWiz Admin</span>
+            </h4>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <!-- Dashboard -->
+            <div class="nav-item">
+                <a href="{{ url_for('custom_admin.dashboard') }}" 
+                   class="nav-link {{ 'active' if request.endpoint == 'custom_admin.dashboard' else '' }}"
+                   data-tooltip="Dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span class="nav-link-text">Dashboard</span>
+                </a>
+            </div>
+            
+            <!-- Dynamic Navigation -->
+            {% for category, category_data in navigation.items() %}
+            <div class="nav-category">
+                <div class="nav-category-title">
+                    <i class="{{ category_data.icon }}"></i>
+                    {{ category }}
+                </div>
+                {% for model in category_data.models %}
+                <div class="nav-item">
+                    <a href="{{ model.url }}" 
+                       class="nav-link"
+                       data-tooltip="{{ model.name }}">
+                        <i class="{{ model.icon }}"></i>
+                        <span class="nav-link-text">{{ model.name }}</span>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </nav>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="admin-main" id="adminMain">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" type="button">
+                    <i class="fas fa-bars"></i>
+                </button>
+                {% block breadcrumb %}
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('custom_admin.dashboard') }}">
+                                <i class="fas fa-home"></i> Admin
+                            </a>
+                        </li>
+                        {% if config %}
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('custom_admin.model_list', model_name=model_name) }}">
+                                {{ config.name_plural }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ol>
+                </nav>
+                {% endblock %}
+            </div>
+            
+            <div class="header-right">
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                            type="button" data-toggle="dropdown">
+                        <i class="fas fa-user"></i>
+                        {{ current_user.full_name or current_user.username }}
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <a class="dropdown-item" href="{{ url_for('dashboard') }}">
+                            <i class="fas fa-home"></i> Main Dashboard
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Content -->
+        <main class="admin-content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'warning' else 'times-circle' if category == 'error' else 'info-circle' }}"></i>
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert">
+                                <span>&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    <!-- Bootstrap 4 JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
+    
+    <!-- Custom Admin JavaScript -->
+    <script>
+        $(document).ready(function() {
+            // Sidebar toggle
+            $('#sidebarToggle').click(function() {
+                $('#adminSidebar').toggleClass('collapsed');
+                $('#adminMain').toggleClass('expanded');
+                
+                // Store preference
+                localStorage.setItem('sidebarCollapsed', $('#adminSidebar').hasClass('collapsed'));
+            });
+            
+            // Restore sidebar state
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                $('#adminSidebar').addClass('collapsed');
+                $('#adminMain').addClass('expanded');
+            }
+            
+            // Mobile sidebar toggle
+            $(window).resize(function() {
+                if ($(window).width() <= 768) {
+                    $('#adminSidebar').removeClass('collapsed');
+                    $('#adminMain').removeClass('expanded');
+                }
+            });
+            
+            // Set active nav link
+            var currentPath = window.location.pathname;
+            $('.nav-link').each(function() {
+                if ($(this).attr('href') === currentPath) {
+                    $(this).addClass('active');
+                }
+            });
+            
+            // Auto-hide alerts
+            setTimeout(function() {
+                $('.alert').fadeOut('slow');
+            }, 5000);
+            
+            // Form validation
+            $('form').on('submit', function(e) {
+                var isValid = true;
+                $(this).find('[required]').each(function() {
+                    if (!$(this).val().trim()) {
+                        $(this).addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                });
+                
+                if (!isValid) {
+                    e.preventDefault();
+                    showAlert('Please fill in all required fields.', 'danger');
+                    return false;
+                }
+            });
+            
+            // Remove validation on input
+            $('.form-control').on('input', function() {
+                $(this).removeClass('is-invalid');
+            });
+            
+            // Confirm delete
+            $('.btn-delete, .delete-btn').click(function(e) {
+                if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+            
+            // Bulk actions
+            $('#selectAll').change(function() {
+                $('.select-row').prop('checked', $(this).prop('checked'));
+                updateBulkActions();
+            });
+            
+            $('.select-row').change(function() {
+                updateBulkActions();
+            });
+            
+            $('#bulkActionBtn').click(function() {
+                var action = $('#bulkAction').val();
+                var selectedIds = [];
+                
+                $('.select-row:checked').each(function() {
+                    selectedIds.push($(this).val());
+                });
+                
+                if (selectedIds.length === 0) {
+                    showAlert('Please select items to perform bulk action.', 'warning');
+                    return;
+                }
+                
+                if (!confirm(`Are you sure you want to ${action} ${selectedIds.length} items?`)) {
+                    return;
+                }
+                
+                performBulkAction(action, selectedIds);
+            });
+            
+            // Search functionality
+            $('#searchForm').on('submit', function(e) {
+                var searchTerm = $('#searchInput').val().trim();
+                if (!searchTerm) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+            
+            // Filter toggle
+            $('.filter-toggle').click(function() {
+                $('.filters-section .collapse').collapse('toggle');
+                $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
+            });
+            
+            // Dependent dropdowns
+            $('[data-dependent]').change(function() {
+                var dependentField = $(this).data('dependent');
+                var sourceValue = $(this).val();
+                
+                if (sourceValue) {
+                    loadDependentChoices(dependentField, $(this).data('source'), sourceValue);
+                } else {
+                    $('#' + dependentField).html('<option value="">Select...</option>');
+                }
+            });
+            
+            // JSON editor formatting
+            $('.json-editor').each(function() {
+                try {
+                    var jsonText = $(this).val();
+                    if (jsonText) {
+                        var formatted = JSON.stringify(JSON.parse(jsonText), null, 2);
+                        $(this).val(formatted);
+                    }
+                } catch (e) {
+                    // Invalid JSON, leave as is
+                }
+            });
+        });
+        
+        // Helper functions
+        function showAlert(message, type) {
+            var alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'times-circle' : 'info-circle'}"></i>
+                    ${message}
+                    <button type="button" class="close" data-dismiss="alert">
+                        <span>&times;</span>
+                    </button>
+                </div>
+            `;
+            $('.admin-content').prepend(alertHtml);
+            
+            setTimeout(function() {
+                $('.alert').first().fadeOut('slow', function() {
+                    $(this).remove();
+                });
+            }, 5000);
+        }
+        
+        function updateBulkActions() {
+            var selectedCount = $('.select-row:checked').length;
+            if (selectedCount > 0) {
+                $('#bulkActions').show();
+                $('#selectedCount').text(selectedCount);
+            } else {
+                $('#bulkActions').hide();
+            }
+        }
+        
+        function performBulkAction(action, selectedIds) {
+            var modelName = $('#bulkActionForm').data('model');
+            
+            $.ajax({
+                url: `/custom-admin/api/models/${modelName}/bulk-action`,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': $('meta[name=csrf-token]').attr('content')
+                },
+                data: JSON.stringify({
+                    action: action,
+                    object_ids: selectedIds
+                }),
+                success: function(response) {
+                    showAlert(response.message, 'success');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                },
+                error: function(xhr) {
+                    var errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred';
+                    showAlert(errorMsg, 'danger');
+                }
+            });
+        }
+        
+        function loadDependentChoices(fieldId, sourceModel, sourceValue) {
+            var fieldName = $('#' + fieldId).data('field');
+            
+            $.ajax({
+                url: `/custom-admin/api/models/${sourceModel}/choices/${fieldName}`,
+                method: 'GET',
+                data: { parent_id: sourceValue },
+                success: function(choices) {
+                    var $field = $('#' + fieldId);
+                    $field.html('<option value="">Select...</option>');
+                    
+                    choices.forEach(function(choice) {
+                        $field.append(`<option value="${choice[0]}">${choice[1]}</option>`);
+                    });
+                },
+                error: function() {
+                    showAlert('Error loading dependent choices', 'danger');
+                }
+            });
+        }
+        
+        function setLoading(element, loading) {
+            if (loading) {
+                $(element).prop('disabled', true);
+                var originalText = $(element).text();
+                $(element).data('original-text', originalText);
+                $(element).html('<span class="spinner-border spinner-border-sm mr-2"></span>Loading...');
+            } else {
+                $(element).prop('disabled', false);
+                $(element).text($(element).data('original-text'));
+            }
+        }
+        
+        // CSRF token for AJAX requests
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content'));
+                }
+            }
+        });
+        
+        // Export functionality
+        function exportData(format) {
+            var url = new URL(window.location.href);
+            url.searchParams.set('export', format);
+            window.open(url.toString(), '_blank');
+        }
+        
+        // Quick search
+        function quickSearch() {
+            var searchTerm = $('#quickSearch').val().toLowerCase();
+            $('.searchable-row').each(function() {
+                var text = $(this).text().toLowerCase();
+                if (text.includes(searchTerm)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+        
+        // Auto-save for forms (optional)
+        function enableAutoSave() {
+            var formData = {};
+            
+            $('form .form-control').on('change', function() {
+                var fieldName = $(this).attr('name');
+                var fieldValue = $(this).val();
+                formData[fieldName] = fieldValue;
+                
+                // Save to localStorage
+                localStorage.setItem('formDraft_' + window.location.pathname, JSON.stringify(formData));
+                
+                // Show auto-save indicator
+                showAutoSaveIndicator();
+            });
+        }
+        
+        function showAutoSaveIndicator() {
+            if (!$('.auto-save-indicator').length) {
+                $('form').append('<div class="auto-save-indicator text-muted"><i class="fas fa-save"></i> Auto-saved</div>');
+                setTimeout(function() {
+                    $('.auto-save-indicator').fadeOut(function() {
+                        $(this).remove();
+                    });
+                }, 2000);
+            }
+        }
+        
+        // Initialize tooltips and popovers
+        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-toggle="popover"]').popover();
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

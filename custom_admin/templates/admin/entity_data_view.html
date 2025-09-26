@@ -1,0 +1,71 @@
+{% extends 'admin/base.html' %}
+
+{% block body %}
+<div class="admin-full-width">
+    <h2>{{ entity_type.name }} Data</h2>
+    <p>Data records for {{ entity_type.name }} entity type.</p>
+    
+    <div style="margin-bottom: 15px;">
+        <a href="{{ url_for('.index') }}" class="btn btn-secondary">← Back to Entity Types</a>
+    </div>
+    
+    {% if instances_data %}
+    <div class="table-responsive">
+        <table class="table table-striped" style="font-size: 12px;">
+            <thead>
+                <tr style="background-color: #f8f9fa;">
+                    <th>ID</th>
+                    <th>Instance Code</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                    <th>Updated At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for instance in instances_data %}
+                <tr>
+                    <td>{{ instance.id }}</td>
+                    <td>{{ instance.instance_code or '-' }}</td>
+                    <td>{{ instance.workflow_status or 'Active' }}</td>
+                    <td>{{ instance.created_at.strftime('%Y-%m-%d %H:%M') if instance.created_at else '-' }}</td>
+                    <td>{{ instance.updated_at.strftime('%Y-%m-%d %H:%M') if instance.updated_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if pagination and pagination.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('.view_entity_data', entity_type_id=entity_type.id, page=pagination.prev_num) }}" 
+           class="btn btn-sm btn-outline-primary">« Previous</a>
+        {% endif %}
+        
+        {% for page_num in pagination.iter_pages() %}
+            {% if page_num %}
+                {% if page_num != pagination.page %}
+                <a href="{{ url_for('.view_entity_data', entity_type_id=entity_type.id, page=page_num) }}" 
+                   class="btn btn-sm btn-outline-primary">{{ page_num }}</a>
+                {% else %}
+                <span class="btn btn-sm btn-primary">{{ page_num }}</span>
+                {% endif %}
+            {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled">...</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+        <a href="{{ url_for('.view_entity_data', entity_type_id=entity_type.id, page=pagination.next_num) }}" 
+           class="btn btn-sm btn-outline-primary">Next »</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="text-center" style="margin-top: 50px;">
+        <p>No data records found for this entity type.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

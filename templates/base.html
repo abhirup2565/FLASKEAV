@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Port Management System{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    
+    <!-- Custom SAP-like CSS -->
+    <style>
+        :root {
+            --sap-blue: #0070f2;
+            --sap-dark-blue: #0040a0;
+            --sap-light-blue: #e6f2ff;
+            --sap-gray: #f8f9fa;
+            --sap-border: #d1d5db;
+            --sap-text: #2d3748;
+            --sap-text-muted: #6b7280;
+            --sidebar-width: 250px;
+            --header-height: 48px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--sap-text);
+            background-color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        /* Header */
+        .main-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: linear-gradient(135deg, var(--sap-blue) 0%, var(--sap-dark-blue) 100%);
+            color: white;
+            z-index: 1030;
+            border-bottom: 1px solid var(--sap-border);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+        }
+        
+        .header-brand {
+            font-size: 22px;
+            font-weight: 600;
+            margin-right: 30px;
+        }
+        
+        .header-nav {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+        }
+        
+        .header-user {
+            display: flex;
+            align-items: center;
+            color: white;
+            text-decoration: none;
+            font-size: 11px;
+        }
+        
+        .header-user:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - var(--header-height));
+            background-color: var(--sap-gray);
+            border-right: 1px solid var(--sap-border);
+            overflow-y: auto;
+            z-index: 1020;
+        }
+        
+        .sidebar-section {
+            border-bottom: 1px solid var(--sap-border);
+        }
+        
+        .sidebar-header {
+            padding: 8px 12px;
+            background-color: #e9ecef;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--sap-text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .sidebar-content {
+            padding: 5px 0;
+        }
+        
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px 6px 20px;
+            color: var(--sap-text);
+            text-decoration: none;
+            font-size: 11px;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            transition: background-color 0.15s ease;
+        }
+        
+        .sidebar-item:hover {
+            background-color: var(--sap-light-blue);
+            color: var(--sap-blue);
+        }
+        
+        .sidebar-item.active {
+            background-color: var(--sap-blue);
+            color: white;
+        }
+        
+        .sidebar-item .material-icons,
+        .sidebar-item .material-symbols-outlined {
+            font-size: 16px;
+            margin-right: 8px;
+        }
+        
+        .sidebar-item .item-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .favorite-star {
+            margin-left: auto;
+            font-size: 14px;
+            opacity: 0.5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .favorite-star:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .favorite-star.favorited {
+            color: #fbbf24;
+            opacity: 1;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--header-height);
+            padding: 15px;
+            min-height: calc(100vh - var(--header-height));
+        }
+        
+        /* Content Header */
+        .content-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--sap-border);
+        }
+        
+        .content-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--sap-text);
+            margin-bottom: 5px;
+        }
+        
+        .content-breadcrumb {
+            font-size: 11px;
+            color: var(--sap-text-muted);
+        }
+        
+        .content-breadcrumb a {
+            color: var(--sap-blue);
+            text-decoration: none;
+        }
+        
+        .content-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            background-color: var(--sap-gray);
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+        }
+        
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .toolbar-separator {
+            width: 1px;
+            height: 20px;
+            background-color: var(--sap-border);
+            margin: 0 8px;
+        }
+        
+        /* Buttons */
+        .btn-sap {
+            font-size: 11px;
+            padding: 4px 12px;
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+            background-color: white;
+            color: var(--sap-text);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+        }
+        
+        .btn-sap:hover {
+            background-color: var(--sap-light-blue);
+            border-color: var(--sap-blue);
+            color: var(--sap-blue);
+            text-decoration: none;
+        }
+        
+        .btn-sap.btn-primary {
+            background-color: var(--sap-blue);
+            border-color: var(--sap-blue);
+            color: white;
+        }
+        
+        .btn-sap.btn-primary:hover {
+            background-color: var(--sap-dark-blue);
+            color: white;
+        }
+        
+        .btn-sap .material-icons,
+        .btn-sap .material-symbols-outlined {
+            font-size: 14px;
+        }
+        
+        /* Tables */
+        .table-sap {
+            font-size: 11px;
+            border: 1px solid var(--sap-border);
+        }
+        
+        .table-sap th {
+            background-color: var(--sap-gray);
+            border-bottom: 2px solid var(--sap-border);
+            font-weight: 600;
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+        
+        .table-sap td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .table-sap tbody tr:hover {
+            background-color: var(--sap-light-blue);
+        }
+        
+        /* Forms */
+        .form-sap .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 3px;
+            color: var(--sap-text);
+        }
+        
+        .form-sap .form-control {
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+        }
+        
+        .form-sap .form-control:focus {
+            border-color: var(--sap-blue);
+            box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2);
+        }
+        
+        /* Cards */
+        .card-sap {
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+            background-color: white;
+        }
+        
+        .card-sap .card-header {
+            background-color: var(--sap-gray);
+            border-bottom: 1px solid var(--sap-border);
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .card-sap .card-body {
+            padding: 12px;
+        }
+        
+        /* Tabs */
+        .nav-tabs-sap {
+            border-bottom: 1px solid var(--sap-border);
+        }
+        
+        .nav-tabs-sap .nav-link {
+            font-size: 11px;
+            padding: 6px 12px;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background-color: var(--sap-gray);
+            color: var(--sap-text);
+            margin-right: 2px;
+        }
+        
+        .nav-tabs-sap .nav-link.active {
+            background-color: white;
+            border-color: var(--sap-border) var(--sap-border) white;
+            color: var(--sap-blue);
+        }
+        
+        /* Alerts */
+        .alert-sap {
+            font-size: 11px;
+            padding: 8px 12px;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .alert-sap.alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-sap.alert-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-sap.alert-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .alert-sap.alert-info {
+            background-color: #cce7ff;
+            border: 1px solid #a6d5fa;
+            color: #0c5460;
+        }
+        
+        /* Module Grid */
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .module-card {
+            border: 1px solid var(--sap-border);
+            border-radius: 3px;
+            padding: 12px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .module-card:hover {
+            background-color: var(--sap-light-blue);
+            border-color: var(--sap-blue);
+            color: var(--sap-blue);
+            text-decoration: none;
+        }
+        
+        .module-card .module-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: var(--sap-blue);
+        }
+        
+        .module-card .module-name {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .module-card .module-description {
+            font-size: 10px;
+            color: var(--sap-text-muted);
+            line-height: 1.3;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .module-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Scrollbar Styling */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--sap-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Toast animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-brand">
+            <span class="material-symbols-outlined" style="margin-right: 8px;">anchor</span>
+            PortWiz
+        </div>
+        
+<!-- Update the header navigation in templates/base.html -->
+<!-- Replace the existing dropdown in the header-nav section with this: -->
+
+        <nav class="header-nav">
+            {% if current_user.is_authenticated %}
+                <!-- Add Entity Designer link before the user dropdown -->
+
+                
+                <div class="dropdown">
+                    <a href="#" class="header-user dropdown-toggle" data-bs-toggle="dropdown">
+                        <span class="material-symbols-outlined" style="margin-right: 5px;">person</span>
+                        {{ current_user.full_name or current_user.username }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/custom-admin/">System Admin</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                    </ul>
+                </div>
+            {% endif %}
+        </nav>
+    </header>
+
+    {% if current_user.is_authenticated %}
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <!-- Favorites Section -->
+        {% if favorite_modules %}
+        <div class="sidebar-section">
+            <div class="sidebar-header">
+                <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 14px;">star</span>
+                Favorites
+            </div>
+            <div class="sidebar-content">
+                {% for module in favorite_modules %}
+                <a href="{{ url_for('module_view', module_id=module.id) }}" class="sidebar-item">
+                    <span class="material-symbols-outlined">{{ module.icon or 'folder' }}</span>
+                    <span class="item-text">{{ module.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Applications Section -->
+        {% if applications %}
+        {% for application in applications %}
+        <div class="sidebar-section">
+            <div class="sidebar-header">
+                <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 14px;">{{ application.icon or 'apps' }}</span>
+                {{ application.name }}
+            </div>
+            <div class="sidebar-content">
+                {% for module in application.modules if module.is_active %}
+                <a href="{{ url_for('module_view', module_id=module.id) }}" class="sidebar-item">
+                    <span class="material-symbols-outlined">{{ module.icon or 'folder' }}</span>
+                    <span class="item-text">{{ module.name }}</span>
+                    <span class="favorite-star material-symbols-outlined" 
+                          data-module-id="{{ module.id }}"
+                          onclick="toggleFavorite(event, {{ module.id }})">
+                        star_border
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </aside>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert-sap alert-{{ 'error' if category == 'error' else category }}">
+                        <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 14px;">
+                            {% if category == 'success' %}check_circle
+                            {% elif category == 'error' %}error
+                            {% elif category == 'warning' %}warning
+                            {% else %}info{% endif %}
+                        </span>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Set favorite modules data for JavaScript
+        {% if current_user.is_authenticated %}
+        window.favoriteModules = {{ (favorite_modules | map(attribute='id') | list) | tojson | safe }};
+        {% else %}
+        window.favoriteModules = [];
+        {% endif %}
+        
+        // Get CSRF token function
+        function getCSRFToken() {
+            const metaToken = document.querySelector('meta[name=csrf-token]');
+            if (metaToken) {
+                return metaToken.getAttribute('content');
+            }
+            
+            const formToken = document.querySelector('input[name="csrf_token"]');
+            if (formToken) {
+                return formToken.value;
+            }
+            
+            return '';
+        }
+        
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert-sap alert-${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                min-width: 250px;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.textContent = message;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                background: none;
+                border: none;
+                font-size: 18px;
+                cursor: pointer;
+                float: right;
+                margin-left: 10px;
+            `;
+            closeBtn.onclick = () => toast.remove();
+            toast.appendChild(closeBtn);
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 3000);
+        }
+        
+        // Toggle favorite module
+        function toggleFavorite(event, moduleId) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const star = event.target.closest('button') ? 
+                event.target.closest('button').querySelector('.material-symbols-outlined') : 
+                event.target;
+            const isFavorited = star.textContent === 'star';
+            
+            // Show loading state
+            const originalText = star.textContent;
+            star.textContent = 'hourglass_empty';
+            
+            fetch(`/favorites/toggle/${moduleId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    if (data.action === 'added') {
+                        star.textContent = 'star';
+                        star.style.color = '#fbbf24';
+                        star.classList.add('favorited');
+                        // Update button text if it exists
+                        const button = star.closest('button');
+                        if (button && button.textContent.includes('Add to Favorites')) {
+                            button.innerHTML = button.innerHTML.replace('Add to Favorites', 'Remove from Favorites');
+                        }
+                    } else {
+                        star.textContent = 'star_border';
+                        star.style.color = '';
+                        star.classList.remove('favorited');
+                        // Update button text if it exists
+                        const button = star.closest('button');
+                        if (button && button.textContent.includes('Remove from Favorites')) {
+                            button.innerHTML = button.innerHTML.replace('Remove from Favorites', 'Add to Favorites');
+                        }
+                    }
+                    
+                    // Update global favorites array
+                    if (data.action === 'added') {
+                        window.favoriteModules.push(moduleId);
+                    } else {
+                        window.favoriteModules = window.favoriteModules.filter(id => id !== moduleId);
+                    }
+                    
+                    // Show success message
+                    showToast(`Module ${data.action} ${data.action === 'added' ? 'to' : 'from'} favorites`, 'success');
+                    
+                    // Refresh page after a short delay to update favorites section
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling favorite:', error);
+                star.textContent = originalText; // Restore original state
+                showToast('Error updating favorites: ' + error.message, 'error');
+            });
+        }
+        
+        // Initialize favorite stars
+        document.addEventListener('DOMContentLoaded', function() {
+            const favoriteModules = window.favoriteModules || [];
+            
+            document.querySelectorAll('.favorite-star').forEach(star => {
+                const moduleId = parseInt(star.dataset.moduleId);
+                if (favoriteModules.includes(moduleId)) {
+                    star.classList.add('favorited');
+                    star.textContent = 'star';
+                    star.style.color = '#fbbf24';
+                } else {
+                    star.textContent = 'star_border';
+                    star.style.color = '';
+                }
+            });
+        });
+        
+        // Table row click handler
+        function handleTableRowClick(url) {
+            window.location.href = url;
+        }
+        
+        // Confirm delete action
+        function confirmDelete(message) {
+            return confirm(message || 'Are you sure you want to delete this item?');
+        }
+        
+        // Show loading spinner
+        function showLoading(element) {
+            const originalText = element.innerHTML;
+            element.innerHTML = '<span class="loading-spinner"></span> Loading...';
+            element.disabled = true;
+            
+            return function hideLoading() {
+                element.innerHTML = originalText;
+                element.disabled = false;
+            };
+        }
+        
+        // Auto-hide alerts
+        setTimeout(function() {
+            document.querySelectorAll('.alert-sap').forEach(alert => {
+                alert.style.transition = 'opacity 0.5s ease';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            });
+        }, 5000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

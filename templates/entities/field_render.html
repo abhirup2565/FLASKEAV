@@ -1,0 +1,251 @@
+<!-- templates/entities/field_render.html -->
+<!-- Field Rendering Template for Entity Forms -->
+
+{% set field_name = "attr_" + field.attribute_definition.code %}
+{% set field_value = current_values.get(field.attribute_definition.code) if current_values else None %}
+
+<div class="form-group">
+    <label for="{{ field_name }}" class="form-label">
+        {{ field.field_label or field.attribute_definition.name }}
+        {% if field.is_required or field.attribute_definition.is_required %}
+        <span style="color: red;">*</span>
+        {% endif %}
+    </label>
+    
+    {% if field.field_type.value == 'SELECT' %}
+        <select class="form-control" 
+                id="{{ field_name }}" 
+                name="{{ field_name }}"
+                {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+                {% if not field.is_editable %}disabled{% endif %}>
+            <option value="">Select...</option>
+                {% if lookup_data.get(field.attribute_definition.code) %}
+                    {% for option in lookup_data.get(field.attribute_definition.code, []) %}
+                        <option value="{{ option.value }}" 
+                                {% if field_value == option.value %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                    {% endfor %}
+                {% endif %}
+        </select>
+    
+    {% elif field.field_type.value == 'MULTISELECT' %}
+        <select class="form-control" 
+                id="{{ field_name }}" 
+                name="{{ field_name }}"
+                multiple
+                {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+                {% if not field.is_editable %}disabled{% endif %}>
+                {% if lookup_data.get(field.attribute_definition.code) %}
+                    {% for option in lookup_data.get(field.attribute_definition.code, []) %}
+                        <option value="{{ option.value }}" 
+                                {% if field_value == option.value %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                    {% endfor %}
+                {% endif %}
+        </select>
+    
+    {% elif field.field_type.value == 'TEXTAREA' %}
+        <textarea class="form-control" 
+                  id="{{ field_name }}" 
+                  name="{{ field_name }}"
+                  rows="3"
+                  placeholder="{{ field.placeholder_text or '' }}"
+                  {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+                  {% if not field.is_editable %}readonly{% endif %}>{{ field_value or '' }}</textarea>
+    
+    {% elif field.field_type.value == 'CHECKBOX' %}
+        <div class="form-check">
+            <input class="form-check-input" 
+                   type="checkbox" 
+                   id="{{ field_name }}" 
+                   name="{{ field_name }}"
+                   value="true"
+                   {% if field_value %}checked{% endif %}
+                   {% if not field.is_editable %}disabled{% endif %}>
+            <label class="form-check-label" for="{{ field_name }}">
+                {{ field.help_text or "Yes" }}
+            </label>
+        </div>
+    
+    {% elif field.field_type.value == 'PASSWORD' %}
+        <input type="password" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'EMAIL' %}
+        <input type="email" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'URL' %}
+        <input type="url" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'DATE' %}
+        <input type="date" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value.strftime('%Y-%m-%d') if field_value else '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'DATETIME' %}
+        <input type="datetime-local" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value.strftime('%Y-%m-%dT%H:%M') if field_value else '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'TIME' %}
+        <input type="time" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value.strftime('%H:%M') if field_value else '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'NUMBER' %}
+        {% if field.attribute_definition.data_type.value in ['INT', 'BIGINT'] %}
+        <input type="number" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+        {% endif %}
+    
+    {% elif field.field_type.value == 'DECIMAL' %}
+        <input type="number" 
+               step="0.01" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+    
+    {% elif field.field_type.value == 'FILE' %}
+        <input type="file" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}disabled{% endif %}>
+    
+    {% elif field.field_type.value == 'IMAGE' %}
+        <input type="file" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               accept="image/*"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}disabled{% endif %}>
+    
+    {% elif field.field_type.value == 'RADIO' %}
+        <div class="form-radio-group">
+            {% if dropdown_data.get(field.attribute_definition.code) %}
+                {% for option in dropdown_data[field.attribute_definition.code] %}
+                <div class="form-check">
+                    <input class="form-check-input" 
+                           type="radio" 
+                           id="{{ field_name }}_{{ loop.index }}" 
+                           name="{{ field_name }}"
+                           value="{{ option.value }}"
+                           {% if field_value == option.value %}checked{% endif %}
+                           {% if not field.is_editable %}disabled{% endif %}>
+                    <label class="form-check-label" for="{{ field_name }}_{{ loop.index }}">
+                        {{ option.label }}
+                    </label>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    
+    {% else %}
+        <!-- Default: TEXT input based on data type -->
+        {% if field.attribute_definition.data_type.value in ['INT', 'BIGINT'] %}
+        <input type="number" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+        
+        {% elif field.attribute_definition.data_type.value == 'DECIMAL' %}
+        <input type="number" 
+               step="0.01" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+        
+        {% elif field.attribute_definition.data_type.value in ['DATE', 'DATETIME'] %}
+        <input type="{{ 'datetime-local' if field.attribute_definition.data_type.value == 'DATETIME' else 'date' }}" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value.strftime('%Y-%m-%dT%H:%M' if field.attribute_definition.data_type.value == 'DATETIME' else '%Y-%m-%d') if field_value else '' }}"
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+        
+        {% elif field.attribute_definition.data_type.value == 'BOOLEAN' %}
+        <div class="form-check">
+            <input class="form-check-input" 
+                   type="checkbox" 
+                   id="{{ field_name }}" 
+                   name="{{ field_name }}"
+                   value="true"
+                   {% if field_value %}checked{% endif %}
+                   {% if not field.is_editable %}disabled{% endif %}>
+            <label class="form-check-label" for="{{ field_name }}">
+                {{ field.help_text or "Yes" }}
+            </label>
+        </div>
+        
+        {% else %}
+        <!-- Default VARCHAR/TEXT input -->
+        <input type="text" 
+               class="form-control" 
+               id="{{ field_name }}" 
+               name="{{ field_name }}"
+               value="{{ field_value or '' }}"
+               placeholder="{{ field.placeholder_text or '' }}"
+               {% if field.attribute_definition.max_length %}maxlength="{{ field.attribute_definition.max_length }}"{% endif %}
+               {% if field.is_required or field.attribute_definition.is_required %}required{% endif %}
+               {% if not field.is_editable %}readonly{% endif %}>
+        {% endif %}
+    {% endif %}
+    
+    {% if field.help_text %}
+    <small class="form-text text-muted">{{ field.help_text }}</small>
+    {% endif %}
+</div>

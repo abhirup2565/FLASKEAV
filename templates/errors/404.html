@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - Port Management System{% endblock %}
+
+{% block content %}
+<div class="text-center" style="padding: 60px 20px;">
+    <span class="material-symbols-outlined" style="font-size: 120px; opacity: 0.3; color: var(--sap-text-muted);">error</span>
+    <h1 style="font-size: 48px; font-weight: 600; margin: 20px 0; color: var(--sap-text);">404</h1>
+    <h2 style="font-size: 24px; font-weight: 400; margin-bottom: 15px; color: var(--sap-text-muted);">Page Not Found</h2>
+    <p style="font-size: 14px; color: var(--sap-text-muted); margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
+        The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+    </p>
+    
+    <div style="margin-top: 30px;">
+        <a href="{{ url_for('dashboard') }}" class="btn-sap btn-primary">
+            <span class="material-symbols-outlined">home</span>
+            Go to Dashboard
+        </a>
+        <button class="btn-sap" onclick="window.history.back()" style="margin-left: 10px;">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Go Back
+        </button>
+    </div>
+</div>
+{% endblock %}

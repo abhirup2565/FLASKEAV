@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entity_type.name }} - Port Management System{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ entity_type.name }}</h1>
+    <nav class="content-breadcrumb">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <span> / </span>
+        <a href="{{ url_for('module_view', module_id=entity_type.module_id) }}">{{ entity_type.module.name }}</a>
+        <span> / </span>
+        <span>{{ entity_type.name }}</span>
+    </nav>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-section">
+        <button class="btn-sap" onclick="window.history.back()">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Back
+        </button>
+    </div>
+    
+    <div class="toolbar-separator"></div>
+    
+    <div class="toolbar-section">
+        <a href="{{ url_for('entity_create', entity_type_id=entity_type.id) }}" class="btn-sap btn-primary">
+            <span class="material-symbols-outlined">add</span>
+            Create New
+        </a>
+        <button class="btn-sap" onclick="exportData()">
+            <span class="material-symbols-outlined">download</span>
+            Export
+        </button>
+        <button class="btn-sap" onclick="refreshList()">
+            <span class="material-symbols-outlined">refresh</span>
+            Refresh
+        </button>
+    </div>
+    
+    <div class="toolbar-separator"></div>
+    
+    <div class="toolbar-section">
+        <div class="input-group" style="width: 250px;">
+            <input type="text" class="form-control" placeholder="Search..." id="searchInput" style="font-size: 11px;">
+            <button class="btn-sap" onclick="performSearch()">
+                <span class="material-symbols-outlined">search</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- List Content -->
+<div class="card-sap">
+    <div class="card-header">
+        <span class="material-symbols-outlined" style="margin-right: 5px;">{{ entity_type.icon or 'table_view' }}</span>
+        {{ entity_type.name }} List
+        {% if pagination %}
+        <span style="margin-left: 10px; font-size: 11px; color: var(--sap-text-muted);">
+            ({{ pagination.total }} record{{ 's' if pagination.total != 1 else '' }})
+        </span>
+        {% endif %}
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if instances_data %}
+        <div class="table-responsive">
+            <table class="table table-sap table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        {% for field in form_fields %}
+                        {% if field.is_visible %}
+                        <th>
+                            {{ field.field_label or field.attribute_definition.name }}
+                            {% if field.is_sortable %}
+                            <span class="material-symbols-outlined" style="font-size: 12px; cursor: pointer;">unfold_more</span>
+                            {% endif %}
+                        </th>
+                        {% endif %}
+                        {% endfor %}
+                        <th style="width: 60px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for instance in instances_data %}
+                    <tr style="cursor: pointer;" onclick="handleTableRowClick('{{ url_for('entity_detail', entity_type_id=entity_type.id, instance_id=instance.id) }}')">
+                        <td>{{ loop.index + ((pagination.page - 1) * pagination.per_page) if pagination else loop.index }}</td>
+                        {% for field in form_fields %}
+                        {% if field.is_visible %}
+                        <td>
+                            {% set attr_code = field.attribute_definition.code %}
+                            {% set attr_data = instance.attributes.get(attr_code) %}
+                            {% if attr_data and attr_data.value %}
+                                {% if field.attribute_definition.data_type.value in ['DATE', 'DATETIME', 'TIMESTAMP'] %}
+                                    {{ attr_data.value | format_datetime }}
+                                {% elif field.attribute_definition.data_type.value == 'DECIMAL' %}
+                                    {{ attr_data.value | format_currency if 'amount' in attr_code.lower() or 'price' in attr_code.lower() else attr_data.value }}
+                                {% else %}
+                                    {{ attr_data.value }}
+                                {% endif %}
+                            {% else %}
+                                <span style="color: var(--sap-text-muted); font-style: italic;">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% endfor %}
+                        <td onclick="event.stopPropagation();">
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('entity_detail', entity_type_id=entity_type.id, instance_id=instance.id) }}" 
+                                   class="btn-sap" style="padding: 2px 6px;" title="View Details">
+                                    <span class="material-symbols-outlined" style="font-size: 12px;">visibility</span>
+                                </a>
+                                <a href="{{ url_for('entity_edit', entity_type_id=entity_type.id, instance_id=instance.id) }}" 
+                                   class="btn-sap" style="padding: 2px 6px;" title="Edit">
+                                    <span class="material-symbols-outlined" style="font-size: 12px;">edit</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if pagination and pagination.pages > 1 %}
+        <div style="padding: 15px; border-top: 1px solid var(--sap-border);">
+            <nav>
+                <ul class="pagination pagination-sm justify-content-center" style="margin: 0;">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('entity_list', entity_type_id=entity_type.id, page=pagination.prev_num) }}">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">chevron_left</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in pagination.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != pagination.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('entity_list', entity_type_id=entity_type.id, page=page_num) }}">{{ page_num }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('entity_list', entity_type_id=entity_type.id, page=pagination.next_num) }}">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">chevron_right</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="text-center mt-2" style="font-size: 11px; color: var(--sap-text-muted);">
+                Showing {{ (pagination.page - 1) * pagination.per_page + 1 }} to 
+                {{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total else pagination.total }} 
+                of {{ pagination.total }} entries
+            </div>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center" style="padding: 60px 20px;">
+            <span class="material-symbols-outlined" style="font-size: 64px; opacity: 0.3; color: var(--sap-text-muted);">{{ entity_type.icon or 'table_view' }}</span>
+            <h5 style="margin-top: 15px; font-size: 14px; color: var(--sap-text-muted);">No Records Found</h5>
+            <p style="font-size: 11px; color: var(--sap-text-muted); margin-bottom: 20px;">
+                There are no {{ entity_type.name.lower() }} records to display.
+            </p>
+            <a href="{{ url_for('entity_create', entity_type_id=entity_type.id) }}" class="btn-sap btn-primary">
+                <span class="material-symbols-outlined">add</span>
+                Create First Record
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function refreshList() {
+        const btn = event.target.closest('button');
+        const hideLoading = showLoading(btn);
+        
+        setTimeout(() => {
+            hideLoading();
+            window.location.reload();
+        }, 1000);
+    }
+    
+    function exportData() {
+        const btn = event.target.closest('button');
+        const hideLoading = showLoading(btn);
+        
+        // In a real application, you would implement actual export functionality
+        setTimeout(() => {
+            hideLoading();
+            alert('Export functionality would be implemented here');
+        }, 1000);
+    }
+    
+    function performSearch() {
+        const searchTerm = document.getElementById('searchInput').value;
+        const currentUrl = new URL(window.location.href);
+        
+        if (searchTerm.trim()) {
+            currentUrl.searchParams.set('search', searchTerm);
+        } else {
+            currentUrl.searchParams.delete('search');
+        }
+        
+        window.location.href = currentUrl.toString();
+    }
+    
+    // Handle Enter key in search input
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // Populate search input from URL parameter
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchTerm = urlParams.get('search');
+        if (searchTerm) {
+            document.getElementById('searchInput').value = searchTerm;
+        }
+    });
+</script>
+{% endblock %}
