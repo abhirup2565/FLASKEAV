@@ -12,6 +12,7 @@ from models import *
 # Import custom admin
 from custom_admin import admin_bp, AdminConfig, AdminUtils
 from entity_designer import entity_designer_bp
+from access_control import access_control_bp
 
 # Create Flask application
 app = Flask(__name__)
@@ -42,6 +43,25 @@ def inject_csrf_token():
     """Make CSRF token available in all templates"""
     return dict(csrf_token=generate_csrf)
 
+@app.context_processor
+def inject_permissions():
+    """Inject permission checker into all templates"""
+    def has_permission(entity_type_id, permission_type):
+        if not current_user.is_authenticated:
+            return False
+        perms = get_user_permissions(current_user.id, entity_type_id)
+        return perms.get(f'can_{permission_type.lower()}', False)
+    
+    def get_permissions(entity_type_id):
+        if not current_user.is_authenticated:
+            return {'can_read': False, 'can_create': False, 'can_update': False, 'can_delete': False}
+        return get_user_permissions(current_user.id, entity_type_id)
+    
+    return {
+        'has_permission': has_permission,
+        'get_permissions': get_permissions
+    }
+
 # ===========================================
 # CUSTOM ADMIN INTEGRATION
 # ===========================================
@@ -49,6 +69,7 @@ def inject_csrf_token():
 # Register the custom admin blueprint
 app.register_blueprint(admin_bp)
 app.register_blueprint(entity_designer_bp)
+app.register_blueprint(access_control_bp)
 # Add template filters for admin
 @app.template_filter('get_display_value')
 def get_display_value_filter(obj, field_name):
@@ -196,68 +217,31 @@ def dashboard():
 @app.route('/module/<int:module_id>')
 @login_required
 def module_view(module_id):
-    """Display module with its entity types"""
+    """Display module with its entity types - filtered by permissions"""
     module = Module.query.get_or_404(module_id)
-    entity_types = EntityType.query.filter_by(
-        module_id=module_id, 
-        is_active=True
-    ).order_by(EntityType.order_index).all()
     
-    # Get user's favorite modules for the template
+    # Check if user can access this module
+    if not can_access_module(current_user.id, module_id):
+        flash('You do not have permission to access this module', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get entity types user has read access to
+    accessible_entities = get_accessible_entity_types_for_module(current_user.id, module_id)
+    
+    # Get user's favorite modules
     favorite_modules_query = db.session.query(Module).join(UserFavoriteModule).filter(
         UserFavoriteModule.user_id == current_user.id
     ).all()
     
     return render_template('modules/module_view.html', 
                          module=module, 
-                         entity_types=entity_types,
+                         entity_types=accessible_entities,
                          favorite_modules=favorite_modules_query)
+
 
 # ===========================================
 # ENTITY MANAGEMENT ROUTES
 # ===========================================
-
-@app.route('/entity/<int:entity_type_id>')
-@login_required
-def entity_list(entity_type_id):
-    """Display list of entity instances"""
-    entity_type = EntityType.query.get_or_404(entity_type_id)
-    
-    # Get form definition for list view
-    list_form = FormDefinition.query.filter_by(
-        entity_type_id=entity_type_id,
-        form_type=FormTypeEnum.LIST,
-        is_active=True
-    ).first()
-    
-    if not list_form:
-        flash('No list form configured for this entity type', 'error')
-        return redirect(url_for('module_view', module_id=entity_type.module_id))
-    
-    # Get form fields for the list view
-    form_fields = FormFieldConfiguration.query.filter_by(
-        form_definition_id=list_form.id,
-        is_visible=True
-    ).join(AttributeDefinition, FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id).order_by(FormFieldConfiguration.order_index).all()
-    
-    # Get page and per_page from request
-    page = request.args.get('page', 1, type=int)
-    per_page = list_form.records_per_page or 10
-    
-    # Get entity instances with their attribute values
-    instances_data, pagination = get_entity_instances_with_attributes(
-        entity_type_id, page=page, per_page=per_page
-    )
-    
-    return render_template('entities/entity_list.html',
-                         entity_type=entity_type,
-                         list_form=list_form,
-                         form_fields=form_fields,
-                         instances_data=instances_data,
-                         pagination=pagination)
-
-# Replace the form processing logic in both entity_create and entity_edit routes
-# in app.py with this improved version:
 
 def process_form_data(form_fields, request_form):
     """Process form data with proper type conversion and validation"""
@@ -307,14 +291,64 @@ def process_form_data(form_fields, request_form):
     
     return attribute_values
 
-# Updated entity_create route
+@app.route('/entity/<int:entity_type_id>')
+@login_required
+def entity_list(entity_type_id):
+    """Display list of entity instances"""
+    entity_type = EntityType.query.get_or_404(entity_type_id)
+    
+    # Check read permission
+    if not check_user_permissions(current_user.id, entity_type_id, 'READ'):
+        flash('You do not have permission to view this entity', 'error')
+        return redirect(url_for('dashboard'))
+    
+    list_form = FormDefinition.query.filter_by(
+        entity_type_id=entity_type_id,
+        form_type=FormTypeEnum.LIST,
+        is_active=True
+    ).first()
+    
+    if not list_form:
+        flash('No list form configured for this entity type', 'error')
+        return redirect(url_for('module_view', module_id=entity_type.module_id))
+    
+    form_fields = FormFieldConfiguration.query.filter_by(
+        form_definition_id=list_form.id,
+        is_visible=True
+    ).join(
+    AttributeDefinition,
+    FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id
+    ).order_by(FormFieldConfiguration.order_index).all()
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = list_form.records_per_page or 10
+    
+    instances_data, pagination = get_entity_instances_with_attributes(
+        entity_type_id, page=page, per_page=per_page
+    )
+    
+    # Get permissions for template
+    permissions = get_user_permissions(current_user.id, entity_type_id)
+    
+    return render_template('entities/entity_list.html',
+                         entity_type=entity_type,
+                         list_form=list_form,
+                         form_fields=form_fields,
+                         instances_data=instances_data,
+                         pagination=pagination,
+                         permissions=permissions)
+
 @app.route('/entity/<int:entity_type_id>/create', methods=['GET', 'POST'])
 @login_required
 def entity_create(entity_type_id):
     """Create new entity instance"""
     entity_type = EntityType.query.get_or_404(entity_type_id)
     
-    # Get form definition for create view
+    # Check create permission
+    if not check_user_permissions(current_user.id, entity_type_id, 'CREATE'):
+        flash('You do not have permission to create records in this entity', 'error')
+        return redirect(url_for('entity_list', entity_type_id=entity_type_id))
+    
     create_form = FormDefinition.query.filter_by(
         entity_type_id=entity_type_id,
         form_type=FormTypeEnum.CREATE,
@@ -325,22 +359,33 @@ def entity_create(entity_type_id):
         flash('No create form configured for this entity type', 'error')
         return redirect(url_for('entity_list', entity_type_id=entity_type_id))
     
-    # Get form fields
     form_fields = FormFieldConfiguration.query.filter_by(
         form_definition_id=create_form.id,
         is_visible=True
-    ).join(AttributeDefinition, FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id).order_by(FormFieldConfiguration.order_index).all()
+    ).join(
+    AttributeDefinition,
+    FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id    
+    ).order_by(FormFieldConfiguration.order_index).all()
     
     if request.method == 'POST':
         try:
-            # Process form data with improved validation
             attribute_values = process_form_data(form_fields, request.form)
             
-            # Create the entity instance
             instance = create_entity_instance_with_attributes(
                 entity_type_id=entity_type_id,
                 attribute_values=attribute_values,
                 created_by=current_user.username
+            )
+            
+            # Log audit entry
+            log_audit_entry(
+                entity_type_id=entity_type_id,
+                entity_instance_id=instance.id,
+                operation=OperationEnum.CREATE,
+                new_values=attribute_values,
+                user_id=current_user.id,
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string
             )
             
             flash(f'{entity_type.name} created successfully', 'success')
@@ -348,9 +393,8 @@ def entity_create(entity_type_id):
             
         except Exception as e:
             flash(f'Error creating {entity_type.name}: {str(e)}', 'error')
-            print(f"Entity creation error: {e}")  # For debugging
+            print(f"Entity creation error: {e}")
     
-# Get dropdown options from entity data
     dropdown_data = {}
     for field in form_fields:
         if field.field_type in [FieldTypeEnum.SELECT, FieldTypeEnum.MULTISELECT]:
@@ -363,7 +407,8 @@ def entity_create(entity_type_id):
                     unique_only=field.show_unique_values_only
                 )
                 dropdown_data[field.attribute_definition.code] = options
-
+    
+    permissions = get_user_permissions(current_user.id, entity_type_id)
     
     return render_template('entities/entity_form.html',
                          entity_type=entity_type,
@@ -371,9 +416,9 @@ def entity_create(entity_type_id):
                          form_fields=form_fields,
                          lookup_data=dropdown_data,
                          instance=None,
-                         form_action='create')
+                         form_action='create',
+                         permissions=permissions)
 
-# Updated entity_edit route
 @app.route('/entity/<int:entity_type_id>/<int:instance_id>/edit', methods=['GET', 'POST'])
 @login_required
 def entity_edit(entity_type_id, instance_id):
@@ -381,7 +426,11 @@ def entity_edit(entity_type_id, instance_id):
     entity_type = EntityType.query.get_or_404(entity_type_id)
     instance = EntityInstance.query.get_or_404(instance_id)
     
-    # Get form definition for edit view
+    # Check update permission
+    if not check_user_permissions(current_user.id, entity_type_id, 'UPDATE'):
+        flash('You do not have permission to edit records in this entity', 'error')
+        return redirect(url_for('entity_detail', entity_type_id=entity_type_id, instance_id=instance_id))
+    
     edit_form = FormDefinition.query.filter_by(
         entity_type_id=entity_type_id,
         form_type=FormTypeEnum.EDIT,
@@ -392,22 +441,39 @@ def entity_edit(entity_type_id, instance_id):
         flash('No edit form configured for this entity type', 'error')
         return redirect(url_for('entity_detail', entity_type_id=entity_type_id, instance_id=instance_id))
     
-    # Get form fields
     form_fields = FormFieldConfiguration.query.filter_by(
         form_definition_id=edit_form.id,
         is_visible=True
-    ).join(AttributeDefinition, FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id).order_by(FormFieldConfiguration.order_index).all()
+    ).join(
+    AttributeDefinition,
+    FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id
+    ).order_by(FormFieldConfiguration.order_index).all()
     
     if request.method == 'POST':
         try:
-            # Process form data with improved validation
+            # Get old values for audit
+            old_values = {}
+            for field in form_fields:
+                old_values[field.attribute_definition.code] = instance.get_attribute_value(field.attribute_definition.code)
+            
             attribute_values = process_form_data(form_fields, request.form)
             
-            # Update the entity instance
             update_entity_instance_attributes(
                 instance_id=instance.id,
                 attribute_values=attribute_values,
                 updated_by=current_user.username
+            )
+            
+            # Log audit entry
+            log_audit_entry(
+                entity_type_id=entity_type_id,
+                entity_instance_id=instance.id,
+                operation=OperationEnum.UPDATE,
+                old_values=old_values,
+                new_values=attribute_values,
+                user_id=current_user.id,
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string
             )
             
             flash(f'{entity_type.name} updated successfully', 'success')
@@ -415,16 +481,13 @@ def entity_edit(entity_type_id, instance_id):
             
         except Exception as e:
             flash(f'Error updating {entity_type.name}: {str(e)}', 'error')
-            print(f"Entity update error: {e}")  # For debugging
+            print(f"Entity update error: {e}")
     
-    # Get current attribute values
     current_values = {}
     for field in form_fields:
         value = instance.get_attribute_value(field.attribute_definition.code)
         current_values[field.attribute_definition.code] = value
     
-   
-    # Get dropdown options from entity data
     dropdown_data = {}
     for field in form_fields:
         if field.field_type in [FieldTypeEnum.SELECT, FieldTypeEnum.MULTISELECT]:
@@ -438,6 +501,8 @@ def entity_edit(entity_type_id, instance_id):
                 )
                 dropdown_data[field.attribute_definition.code] = options
     
+    permissions = get_user_permissions(current_user.id, entity_type_id)
+    
     return render_template('entities/entity_form.html',
                          entity_type=entity_type,
                          form_definition=edit_form,
@@ -445,16 +510,21 @@ def entity_edit(entity_type_id, instance_id):
                          lookup_data=dropdown_data,
                          instance=instance,
                          current_values=current_values,
-                         form_action='edit')
+                         form_action='edit',
+                         permissions=permissions)
 
 @app.route('/entity/<int:entity_type_id>/<int:instance_id>')
 @login_required
 def entity_detail(entity_type_id, instance_id):
-    """Display entity instance detail with child records"""
+    """Display entity instance detail"""
     entity_type = EntityType.query.get_or_404(entity_type_id)
     instance = EntityInstance.query.get_or_404(instance_id)
     
-    # Get form definition for detail view
+    # Check read permission
+    if not check_user_permissions(current_user.id, entity_type_id, 'READ'):
+        flash('You do not have permission to view this entity', 'error')
+        return redirect(url_for('dashboard'))
+    
     detail_form = FormDefinition.query.filter_by(
         entity_type_id=entity_type_id,
         form_type=FormTypeEnum.DETAIL,
@@ -465,13 +535,14 @@ def entity_detail(entity_type_id, instance_id):
         flash('No detail form configured for this entity type', 'error')
         return redirect(url_for('entity_list', entity_type_id=entity_type_id))
     
-    # Get form fields
     form_fields = FormFieldConfiguration.query.filter_by(
         form_definition_id=detail_form.id,
         is_visible=True
-    ).join(AttributeDefinition, FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id).order_by(FormFieldConfiguration.order_index).all()
+    ).join(
+    AttributeDefinition,
+    FormFieldConfiguration.attribute_definition_id == AttributeDefinition.id
+    ).order_by(FormFieldConfiguration.order_index).all()    
     
-    # Get attribute values for this instance
     instance_data = {
         'id': instance.id,
         'instance_code': instance.instance_code,
@@ -488,12 +559,56 @@ def entity_detail(entity_type_id, instance_id):
             'value': value
         }
     
+    permissions = get_user_permissions(current_user.id, entity_type_id)
     
     return render_template('entities/entity_detail.html',
                          entity_type=entity_type,
                          instance=instance,
                          instance_data=instance_data,
-                         form_fields=form_fields)
+                         form_fields=form_fields,
+                         permissions=permissions)
+
+@app.route('/entity/<int:entity_type_id>/<int:instance_id>/delete', methods=['POST'])
+@login_required
+def entity_delete(entity_type_id, instance_id):
+    """Delete entity instance (soft delete)"""
+    # Check delete permission
+    if not check_user_permissions(current_user.id, entity_type_id, 'DELETE'):
+        return jsonify({'success': False, 'error': 'You do not have permission to delete this record'}), 403
+    
+    try:
+        entity_type = EntityType.query.get_or_404(entity_type_id)
+        instance = EntityInstance.query.get_or_404(instance_id)
+        
+        if instance.entity_type_id != entity_type_id:
+            return jsonify({'success': False, 'error': 'Invalid instance'}), 400
+        
+        # Get values for audit log
+        old_values = {'instance_code': instance.instance_code, 'workflow_status': instance.workflow_status}
+        
+        # Log audit entry before deletion
+        log_audit_entry(
+            entity_type_id=entity_type_id,
+            entity_instance_id=instance_id,
+            operation=OperationEnum.DELETE,
+            old_values=old_values,
+            user_id=current_user.id,
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string
+        )
+        
+        # Soft delete - set is_active to False
+        instance.is_active = False
+        instance.updated_by = current_user.username
+        instance.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Record deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ===========================================

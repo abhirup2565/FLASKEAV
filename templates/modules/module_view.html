@@ -48,12 +48,20 @@
 </div>
 {% endif %}
 
+<!-- Access Control Note -->
+{% if entity_types|length == 0 %}
+<div class="alert-sap alert-warning">
+    <span class="material-symbols-outlined" style="margin-right: 5px;">info</span>
+    You do not have access to view any entities in this module. Please contact your administrator to request access.
+</div>
+{% endif %}
+
 <!-- Entity Types Grid -->
 {% if entity_types %}
 <div class="card-sap">
     <div class="card-header">
         <span class="material-symbols-outlined" style="margin-right: 5px;">table_view</span>
-        Entity Types ({{ entity_types|length }})
+        Entity Types ({{ entity_types|length }} accessible)
     </div>
     <div class="card-body">
         <div class="module-grid">
@@ -66,7 +74,7 @@
                 <div class="module-description">{{ entity_type.description or '' }}</div>
                 
                 <!-- Entity Type Info -->
-                <div style="margin-top: 8px; font-size: 10px; color: var(--sap-text-muted); display: flex; justify-content: between; align-items: center;">
+                <div style="margin-top: 8px; font-size: 10px; color: var(--sap-text-muted); display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         {% if entity_type.is_master %}
                         <span class="badge bg-info" style="font-size: 9px;">Master</span>
@@ -81,23 +89,18 @@
                         {{ instance_count }}
                     </div>
                 </div>
+                
+                <!-- Permission Indicators -->
+                {% set perms = get_permissions(entity_type.id) %}
+                <div style="margin-top: 5px; font-size: 9px; color: var(--sap-text-muted);">
+                    <span title="Read" style="color: {{ '#28a745' if perms.can_read else '#ccc' }};">●</span>
+                    <span title="Create" style="color: {{ '#007bff' if perms.can_create else '#ccc' }};">●</span>
+                    <span title="Update" style="color: {{ '#ffc107' if perms.can_update else '#ccc' }};">●</span>
+                    <span title="Delete" style="color: {{ '#dc3545' if perms.can_delete else '#ccc' }};">●</span>
+                </div>
             </a>
             {% endfor %}
         </div>
-    </div>
-</div>
-{% else %}
-<div class="card-sap">
-    <div class="card-body text-center" style="padding: 40px;">
-        <span class="material-symbols-outlined" style="font-size: 64px; opacity: 0.3; color: var(--sap-text-muted);">table_view</span>
-        <h5 style="margin-top: 15px; font-size: 14px; color: var(--sap-text-muted);">No Entity Types</h5>
-        <p style="font-size: 11px; color: var(--sap-text-muted); margin-bottom: 20px;">
-            This module doesn't have any entity types configured yet.
-        </p>
-        <a href="/admin/" class="btn-sap btn-primary">
-            <span class="material-symbols-outlined">settings</span>
-            Configure Module
-        </a>
     </div>
 </div>
 {% endif %}
@@ -110,7 +113,7 @@
                 <h4 style="font-size: 20px; font-weight: 600; margin-bottom: 5px; color: var(--sap-blue);">
                     {{ entity_types|length }}
                 </h4>
-                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Entity Types</p>
+                <p style="font-size: 11px; color: var(--sap-text-muted); margin: 0;">Accessible Entities</p>
             </div>
         </div>
     </div>
@@ -159,8 +162,6 @@
     function refreshModule() {
         const btn = event.target.closest('button');
         const hideLoading = showLoading(btn);
-        
-        // Refresh the page
         setTimeout(() => {
             hideLoading();
             window.location.reload();

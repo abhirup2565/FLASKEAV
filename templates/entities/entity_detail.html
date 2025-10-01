@@ -16,7 +16,7 @@
     </nav>
 </div>
 
-<!-- Toolbar -->
+<!-- Toolbar with Permission-based Buttons -->
 <div class="toolbar">
     <div class="toolbar-section">
         <a href="{{ url_for('entity_list', entity_type_id=entity_type.id) }}" class="btn-sap">
@@ -28,20 +28,42 @@
     <div class="toolbar-separator"></div>
     
     <div class="toolbar-section">
+        {% if permissions.can_update %}
         <a href="{{ url_for('entity_edit', entity_type_id=entity_type.id, instance_id=instance.id) }}" class="btn-sap btn-primary">
             <span class="material-symbols-outlined">edit</span>
             Edit
         </a>
+        {% endif %}
+        
         <button class="btn-sap" onclick="printRecord()">
             <span class="material-symbols-outlined">print</span>
             Print
         </button>
+        
         <button class="btn-sap" onclick="refreshDetail()">
             <span class="material-symbols-outlined">refresh</span>
             Refresh
         </button>
+        
+        {% if permissions.can_delete %}
+        <button class="btn-sap" style="color: #dc3545;" onclick="deleteRecord()">
+            <span class="material-symbols-outlined">delete</span>
+            Delete
+        </button>
+        {% endif %}
     </div>
 </div>
+
+<!-- Permissions Info Badge (for debugging/admin) -->
+{% if current_user.username == 'admin' %}
+<div class="alert-sap alert-info" style="font-size: 10px;">
+    <strong>Your Permissions:</strong>
+    Read: {{ '✓' if permissions.can_read else '✗' }} |
+    Create: {{ '✓' if permissions.can_create else '✗' }} |
+    Update: {{ '✓' if permissions.can_update else '✗' }} |
+    Delete: {{ '✓' if permissions.can_delete else '✗' }}
+</div>
+{% endif %}
 
 <!-- Main Detail Card -->
 <div class="card-sap">
@@ -103,8 +125,6 @@
     </div>
 </div>
 
-
-
 {% endblock %}
 
 {% block extra_js %}
@@ -112,7 +132,6 @@
     function refreshDetail() {
         const btn = event.target.closest('button');
         const hideLoading = showLoading(btn);
-        
         setTimeout(() => {
             hideLoading();
             window.location.reload();
@@ -123,30 +142,33 @@
         window.print();
     }
     
-    function addChildRecord(tabCode) {
-        // In a real application, this would open a modal or navigate to a child form
-        alert(`Add new record to ${tabCode} - This functionality would be implemented based on your requirements`);
-    }
-    
-    function editChildRecord(tabCode, instanceId) {
-        // In a real application, this would open a modal or navigate to edit form
-        alert(`Edit ${tabCode} record ${instanceId} - This functionality would be implemented based on your requirements`);
-    }
-    
-    function deleteChildRecord(tabCode, instanceId) {
-        if (confirmDelete(`Are you sure you want to delete this ${tabCode} record?`)) {
-            // In a real application, this would make an API call to delete the record
-            alert(`Delete ${tabCode} record ${instanceId} - This functionality would be implemented based on your requirements`);
+    function deleteRecord() {
+        if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
+            return;
         }
+        
+        fetch('{{ url_for('entity_delete', entity_type_id=entity_type.id, instance_id=instance.id) }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Record deleted successfully', 'success');
+                setTimeout(() => {
+                    window.location.href = '{{ url_for('entity_list', entity_type_id=entity_type.id) }}';
+                }, 1000);
+            } else {
+                showToast(data.error || 'Failed to delete record', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error deleting record: ' + error.message, 'error');
+        });
     }
-    
-    // Auto-focus on first tab when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        const firstTab = document.querySelector('.nav-tabs-sap .nav-link');
-        if (firstTab) {
-            firstTab.focus();
-        }
-    });
 </script>
 
 <style>
@@ -154,12 +176,10 @@
         .toolbar, .sidebar, .main-header, .nav-tabs-sap {
             display: none !important;
         }
-        
         .main-content {
             margin-left: 0 !important;
             margin-top: 0 !important;
         }
-        
         .card-sap {
             border: none !important;
             box-shadow: none !important;

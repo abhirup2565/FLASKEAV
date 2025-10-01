@@ -1,43 +1,66 @@
-{% extends "entity_designer/base.html" %}
+{% extends "base.html" %}
+
+{% block title %}Entity Designer - Port Management System{% endblock %}
 
 {% block content %}
+<div class="content-header">
+    <h1 class="content-title">
+        <span class="material-symbols-outlined" style="margin-right: 8px;">design_services</span>
+        Entity Designer
+    </h1>
+    <p class="page-subtitle" style="font-size: 11px; color: var(--sap-text-muted); margin-top: 5px;">
+        Design and configure entities, attributes, and form fields
+    </p>
+</div>
+
 <div class="row">
+    <!-- Left Panel: Entity List -->
     <div class="col-md-4">
-        <!-- Entity List Panel -->
-        <div class="card">
+        <div class="card-sap">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0">
-                    <i class="bi bi-table"></i> Entities
-                </h6>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createEntityModal">
-                    <i class="bi bi-plus"></i> New
-                </button>
+                <span>
+                    <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 14px;">table_view</span>
+                    Entities ({{ entity_summaries|length }})
+                </span>
+                <a href="/custom-admin/models/entity_type/create" class="btn-sap btn-primary" style="padding: 2px 8px; font-size: 10px;">
+                    <span class="material-symbols-outlined" style="font-size: 12px;">add</span>
+                    New
+                </a>
             </div>
             <div class="card-body p-0">
-                <div class="list-group list-group-flush" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Search Box -->
+                <div style="padding: 10px; border-bottom: 1px solid var(--sap-border);">
+                    <input type="text" id="entitySearch" class="form-control form-control-sm" 
+                           placeholder="Search entities..." style="font-size: 11px;">
+                </div>
+                
+                <!-- Entity List -->
+                <div style="max-height: 70vh; overflow-y: auto;" id="entityList">
                     {% for entity in entity_summaries %}
-                    <div class="list-group-item list-group-item-action" 
-                         onclick="loadEntity({{ entity.id }})" 
-                         id="entity-{{ entity.id }}"
-                         style="cursor: pointer; border-left: 3px solid {{ '#17a2b8' if entity.is_master else '#28a745' }};">
+                    <div class="entity-item" data-entity-id="{{ entity.id }}" 
+                         data-entity-name="{{ entity.name }}"
+                         onclick="loadEntity({{ entity.id }})"
+                         style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.15s;">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">{{ entity.name }}</h6>
-                                <p class="mb-1 text-muted small">{{ entity.application }} > {{ entity.module }}</p>
-                                <div class="d-flex gap-1">
+                            <div style="flex: 1;">
+                                <div style="font-size: 12px; font-weight: 600; margin-bottom: 3px;">
+                                    {{ entity.name }}
+                                </div>
+                                <div style="font-size: 10px; color: var(--sap-text-muted); margin-bottom: 3px;">
+                                    {{ entity.application }} > {{ entity.module }}
+                                </div>
+                                <div style="display: flex; gap: 3px; flex-wrap: wrap;">
                                     {% if entity.is_master %}
-                                    <span class="badge bg-info">Master</span>
+                                    <span class="badge bg-info" style="font-size: 9px; padding: 2px 5px;">Master</span>
                                     {% endif %}
                                     {% if entity.is_transactional %}
-                                    <span class="badge bg-success">Transactional</span>
+                                    <span class="badge bg-success" style="font-size: 9px; padding: 2px 5px;">Trans</span>
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="text-end">
-                                <small class="text-muted">
-                                    {{ entity.attributes_count }} attrs<br>
-                                    {{ entity.instances_count }} records
-                                </small>
+                            <div style="text-align: right; font-size: 10px; color: var(--sap-text-muted);">
+                                <div>{{ entity.attributes_count }} attrs</div>
+                                <div>{{ entity.instances_count }} records</div>
                             </div>
                         </div>
                     </div>
@@ -47,273 +70,198 @@
         </div>
     </div>
     
+    <!-- Right Panel: Entity Configuration -->
     <div class="col-md-8">
-        <!-- Entity Designer Panel -->
-        <div id="designerPanel" class="card" style="display: none;">
-            <div class="card-header">
-                <h5 class="mb-0" id="entityTitle">
-                    <i class="bi bi-pencil-square"></i> Entity Designer
-                </h5>
-            </div>
-            <div class="card-body">
-                <!-- Entity Basic Info Tab -->
-                <ul class="nav nav-tabs" id="designerTabs">
-                    <li class="nav-item">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#basicTab">
-                            <i class="bi bi-info-circle"></i> Basic Info
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#attributesTab">
-                            <i class="bi bi-list-ul"></i> Attributes
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#formsTab">
-                            <i class="bi bi-card-text"></i> Forms
-                        </button>
-                    </li>
-                </ul>
-                
-                <div class="tab-content mt-3">
-                    <!-- Basic Info Tab -->
-                    <div class="tab-pane fade show active" id="basicTab">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Entity Name</label>
-                                    <input type="text" class="form-control" id="entityName">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Description</label>
-                                    <textarea class="form-control" id="entityDescription" rows="3"></textarea>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Icon</label>
-                                    <input type="text" class="form-control" id="entityIcon" placeholder="table_view">
-                                </div>
-                                <div class="row">
-                                    <div class="col-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="isMaster">
-                                            <label class="form-check-label" for="isMaster">Master Data</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="isTransactional">
-                                            <label class="form-check-label" for="isTransactional">Transactional</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm" onclick="saveBasicInfo()">
-                            <i class="bi bi-save"></i> Save Basic Info
-                        </button>
+        <!-- Welcome Panel (shown when no entity selected) -->
+        <div id="welcomePanel" class="card-sap">
+            <div class="card-body text-center" style="padding: 60px 20px;">
+                <span class="material-symbols-outlined" style="font-size: 80px; opacity: 0.3; color: var(--sap-blue);">design_services</span>
+                <h4 style="margin-top: 20px; margin-bottom: 10px; font-size: 16px;">Entity Designer</h4>
+                <p style="font-size: 12px; color: var(--sap-text-muted); margin-bottom: 30px;">
+                    Select an entity from the left to configure its attributes and form fields
+                </p>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: var(--sap-blue);">table_view</span>
+                        <p style="font-size: 10px; margin-top: 8px;">Manage Entities</p>
                     </div>
-                    
-                    <!-- Attributes Tab -->
-                    <div class="tab-pane fade" id="attributesTab">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">Attributes</h6>
-                            <button class="btn btn-success btn-sm" onclick="addAttribute()">
-                                <i class="bi bi-plus"></i> Add Attribute
-                            </button>
-                        </div>
-                        
-                        <div id="attributesList">
-                            <!-- Attributes will be loaded here -->
-                        </div>
+                    <div class="col-4">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: #28a745;">list</span>
+                        <p style="font-size: 10px; margin-top: 8px;">Define Attributes</p>
                     </div>
-                    
-                    <!-- Forms Tab -->
-                    <div class="tab-pane fade" id="formsTab">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">Form Configurations</h6>
-                            <button class="btn btn-success btn-sm" onclick="generateForms()">
-                                <i class="bi bi-magic"></i> Generate Forms
-                            </button>
-                        </div>
-                        
-                        <!-- Form Type Selector -->
-                        <div class="mb-3">
-                            <select class="form-select form-select-sm" id="formTypeSelector" onchange="loadFormFields()">
-                                <option value="">Select Form Type to Configure</option>
-                                <option value="LIST">List View</option>
-                                <option value="DETAIL">Detail View</option>
-                                <option value="CREATE">Create Form</option>
-                                <option value="EDIT">Edit Form</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Form Fields Configuration -->
-                        <div id="formFieldsConfig" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="text-muted">Configure how fields appear in the selected form</small>
-                                <button class="btn btn-primary btn-sm" onclick="saveFormConfig()">
-                                    <i class="bi bi-save"></i> Save Form
-                                </button>
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 150px;">Attribute</th>
-                                            <th style="width: 120px;">Field Type</th>
-                                            <th style="width: 80px;">Visible</th>
-                                            <th style="width: 80px;">Editable</th>
-                                            <th style="width: 80px;">Required</th>
-                                            <th>Dropdown Source</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="formFieldsTable">
-                                        <!-- Form fields will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <div id="formsList">
-                            <!-- Forms summary will be loaded here -->
-                        </div>
+                    <div class="col-4">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: #ffc107;">link</span>
+                        <p style="font-size: 10px; margin-top: 8px;">Configure Dropdowns</p>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Welcome Panel -->
-        <div id="welcomePanel" class="card">
-            <div class="card-body welcome-panel">
-                <i class="bi bi-diagram-3" style="font-size: 4rem; opacity: 0.8;"></i>
-                <h4 class="mt-3 mb-2">Entity Designer</h4>
-                <p class="mb-4" style="opacity: 0.9;">Design and configure your entities, attributes, and forms in one place</p>
-                <div class="row text-center">
-                    <div class="col-4">
-                        <i class="bi bi-table" style="font-size: 2rem; opacity: 0.7;"></i>
-                        <p class="mt-2 mb-0" style="font-size: 11px;">Manage Entities</p>
-                    </div>
-                    <div class="col-4">
-                        <i class="bi bi-list-ul" style="font-size: 2rem; opacity: 0.7;"></i>
-                        <p class="mt-2 mb-0" style="font-size: 11px;">Configure Attributes</p>
-                    </div>
-                    <div class="col-4">
-                        <i class="bi bi-card-text" style="font-size: 2rem; opacity: 0.7;"></i>
-                        <p class="mt-2 mb-0" style="font-size: 11px;">Design Forms</p>
+        <!-- Entity Configuration Panel (hidden initially) -->
+        <div id="configPanel" style="display: none;">
+            <!-- Entity Info Header -->
+            <div class="card-sap mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span id="entityTitle" style="font-size: 14px; font-weight: 600;"></span>
+                    <div>
+                        <a id="editEntityBtn" href="#" class="btn-sap" style="padding: 2px 8px; font-size: 10px; margin-right: 5px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px;">edit</span>
+                            Edit Entity
+                        </a>
+                        <button onclick="saveAllChanges()" class="btn-sap btn-primary" style="padding: 2px 8px; font-size: 10px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px;">save</span>
+                            Save Changes
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Create Entity Modal -->
-<div class="modal fade" id="createEntityModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create New Entity</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Module</label>
-                    <select class="form-select" id="newEntityModule">
-                        <option value="">Select Module</option>
-                        {% for module in modules %}
-                        <option value="{{ module.id }}">{{ module.application.name }} > {{ module.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Code</label>
-                    <input type="text" class="form-control" id="newEntityCode" placeholder="ENTITY_CODE">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Name</label>
-                    <input type="text" class="form-control" id="newEntityName" placeholder="Entity Name">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-control" id="newEntityDescription" rows="2"></textarea>
-                </div>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="newIsMaster">
-                            <label class="form-check-label" for="newIsMaster">Master Data</label>
+                <div class="card-body" style="padding: 10px 12px;">
+                    <div class="row">
+                        <div class="col-6" style="font-size: 11px;">
+                            <strong>Module:</strong> <span id="entityModule"></span>
                         </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="newIsTransactional" checked>
-                            <label class="form-check-label" for="newIsTransactional">Transactional</label>
+                        <div class="col-6" style="font-size: 11px; text-align: right;">
+                            <strong>Code:</strong> <span id="entityCode"></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="createEntity()">Create Entity</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Attribute Modal -->
-<div class="modal fade" id="addAttributeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Attribute</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Code</label>
-                    <input type="text" class="form-control" id="newAttrCode" placeholder="ATTRIBUTE_CODE">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Name</label>
-                    <input type="text" class="form-control" id="newAttrName" placeholder="Attribute Name">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Data Type</label>
-                    <select class="form-select" id="newAttrDataType">
-                        <option value="VARCHAR">Text (VARCHAR)</option>
-                        <option value="TEXT">Long Text</option>
-                        <option value="INT">Integer</option>
-                        <option value="DECIMAL">Decimal</option>
-                        <option value="BOOLEAN">Boolean</option>
-                        <option value="DATE">Date</option>
-                        <option value="DATETIME">Date Time</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Max Length (for text fields)</label>
-                    <input type="number" class="form-control" id="newAttrMaxLength">
-                </div>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="newAttrRequired">
-                            <label class="form-check-label" for="newAttrRequired">Required</label>
-                        </div>
+            
+            <!-- Tabs -->
+            <ul class="nav nav-tabs-sap" style="margin-bottom: 15px;">
+                <li class="nav-item">
+                    <a class="nav-link active" data-tab="attributes" onclick="switchTab('attributes')">
+                        <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 3px;">list</span>
+                        Attributes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-tab="forms" onclick="switchTab('forms')">
+                        <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 3px;">edit_note</span>
+                        Form Fields
+                    </a>
+                </li>
+            </ul>
+            
+            <!-- Attributes Tab -->
+            <div id="attributesTab" class="tab-content">
+                <div class="card-sap">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Attributes</span>
+                        <a id="addAttributeBtn" href="#" class="btn-sap btn-primary" style="padding: 2px 8px; font-size: 10px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px;">add</span>
+                            Add Attribute
+                        </a>
                     </div>
-                    <div class="col-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="newAttrUnique">
-                            <label class="form-check-label" for="newAttrUnique">Unique</label>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sap table-sm mb-0">
+                                <thead>
+                                    <tr style="font-size: 11px;">
+                                        <th style="width: 150px;">Code</th>
+                                        <th>Name</th>
+                                        <th style="width: 100px;">Data Type</th>
+                                        <th style="width: 80px; text-align: center;">Required</th>
+                                        <th style="width: 80px; text-align: center;">Unique</th>
+                                        <th style="width: 80px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attributesTable" style="font-size: 11px;">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveNewAttribute()">Add Attribute</button>
+            
+            <!-- Form Fields Tab -->
+            <div id="formsTab" class="tab-content" style="display: none;">
+                <div class="card-sap mb-3">
+                    <div class="card-body" style="padding: 10px 12px;">
+                        <div class="row align-items-center">
+                            <div class="col-auto" style="font-size: 11px; font-weight: 600;">
+                                Select Form Type:
+                            </div>
+                            <div class="col-auto">
+                                <select id="formTypeSelector" class="form-control form-control-sm" 
+                                        onchange="loadFormFields()" style="font-size: 11px; width: 200px;">
+                                    <option value="">Choose form type...</option>
+                                    <option value="LIST">List View</option>
+                                    <option value="DETAIL">Detail View</option>
+                                    <option value="CREATE">Create Form</option>
+                                    <option value="EDIT">Edit Form</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button onclick="generateForms()" class="btn-sap" style="padding: 2px 8px; font-size: 10px;">
+                                    <span class="material-symbols-outlined" style="font-size: 12px;">auto_fix_high</span>
+                                    Generate All Forms
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <div class="dropdown">
+                                    <button class="btn-sap dropdown-toggle" type="button" data-bs-toggle="dropdown" 
+                                            style="padding: 2px 8px; font-size: 10px;">
+                                        <span class="material-symbols-outlined" style="font-size: 12px;">more_vert</span>
+                                        More Actions
+                                    </button>
+                                    <ul class="dropdown-menu" style="font-size: 11px;">
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="event.preventDefault(); viewFormsSummary();">
+                                                <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 5px;">summarize</span>
+                                                View Forms Summary
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="event.preventDefault(); deleteAllForms();">
+                                                <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 5px; color: #dc3545;">delete</span>
+                                                Delete All Forms
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="event.preventDefault(); manageFormsInAdmin();">
+                                                <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 5px;">settings</span>
+                                                Manage in Admin Panel
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="formFieldsConfig" style="display: none;">
+                    <div class="card-sap">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span id="formFieldsTitle">Form Fields Configuration</span>
+                            <button onclick="saveFormConfig()" class="btn-sap btn-primary" style="padding: 2px 8px; font-size: 10px;">
+                                <span class="material-symbols-outlined" style="font-size: 12px;">save</span>
+                                Save Form
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sap table-sm mb-0">
+                                    <thead>
+                                        <tr style="font-size: 11px;">
+                                            <th style="width: 150px;">Attribute</th>
+                                            <th style="width: 120px;">Field Type</th>
+                                            <th style="width: 60px; text-align: center;">Visible</th>
+                                            <th style="width: 60px; text-align: center;">Editable</th>
+                                            <th style="width: 60px; text-align: center;">Required</th>
+                                            <th>Dropdown Configuration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="formFieldsTable" style="font-size: 11px;">
+                                        <!-- Populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -325,230 +273,164 @@
 <script>
 let currentEntityId = null;
 let currentEntityData = null;
+let dropdownSources = [];
+let pendingChanges = new Set();
 
-// Load entity details
-async function loadEntity(entityId) {
+// Load dropdown sources once
+async function loadDropdownSources() {
     try {
-        // Highlight selected entity
-        document.querySelectorAll('.list-group-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        document.getElementById(`entity-${entityId}`).classList.add('active');
-        
-        // Load entity data
-        const data = await apiCall(`/entity-designer/entity/${entityId}`);
-        currentEntityId = entityId;
-        currentEntityData = data;
-        
-        // Show designer panel
-        document.getElementById('welcomePanel').style.display = 'none';
-        document.getElementById('designerPanel').style.display = 'block';
-        
-        // Update title
-        document.getElementById('entityTitle').innerHTML = `
-            <i class="bi bi-pencil-square"></i> ${data.entity.name} Designer
-        `;
-        
-        // Reset form type selector
-        document.getElementById('formTypeSelector').value = '';
-        document.getElementById('formFieldsConfig').style.display = 'none';
-        
-        // Load basic info
-        loadBasicInfo(data.entity);
-        
-        // Load attributes
-        loadAttributes(data.attributes);
-        
-        // Load forms
-        loadForms(data.forms);
-        
+        const response = await fetch('/entity-designer/dropdown-sources');
+        dropdownSources = await response.json();
     } catch (error) {
-        console.error('Failed to load entity:', error);
+        console.error('Error loading dropdown sources:', error);
     }
 }
 
-// Load basic info tab
-function loadBasicInfo(entity) {
-    document.getElementById('entityName').value = entity.name || '';
-    document.getElementById('entityDescription').value = entity.description || '';
-    document.getElementById('entityIcon').value = entity.icon || '';
-    document.getElementById('isMaster').checked = entity.is_master || false;
-    document.getElementById('isTransactional').checked = entity.is_transactional || false;
-}
-
-// Load attributes tab
-function loadAttributes(attributes) {
-    const container = document.getElementById('attributesList');
-    container.innerHTML = '';
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadDropdownSources();
     
-    attributes.forEach((attr, index) => {
-        const attributeHtml = `
-            <div class="attribute-item p-3" data-attr-id="${attr.id}">
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="row">
-                            <div class="col-6">
-                                <label class="form-label">Code</label>
-                                <input type="text" class="form-control form-control-sm" 
-                                       value="${attr.code}" readonly>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Name</label>
-                                <input type="text" class="form-control form-control-sm" 
-                                       value="${attr.name}" 
-                                       onchange="updateAttribute(${attr.id}, 'name', this.value)">
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-4">
-                                <label class="form-label">Data Type</label>
-                                <select class="form-select form-select-sm" disabled>
-                                    <option>${attr.data_type}</option>
-                                </select>
-                            </div>
-                            <div class="col-4">
-                                <label class="form-label">Max Length</label>
-                                <input type="number" class="form-control form-control-sm" 
-                                       value="${attr.max_length || ''}"
-                                       onchange="updateAttribute(${attr.id}, 'max_length', this.value)">
-                            </div>
-                            <div class="col-4 pt-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" 
-                                           ${attr.is_required ? 'checked' : ''}
-                                           onchange="updateAttribute(${attr.id}, 'is_required', this.checked)">
-                                    <label class="form-check-label">Required</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-end">
-                            <small class="text-muted">Form Configs: ${attr.form_configs.length}</small>
-                            <br>
-                            <button class="btn btn-outline-danger btn-sm mt-2" 
-                                    onclick="deleteAttribute(${attr.id})">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
-                        </div>
-                        
-                        <!-- Form Configurations for this attribute -->
-                        <div class="mt-3">
-                            ${attr.form_configs.map(config => `
-                                <div class="form-config-item p-2 mb-1">
-                                    <small><strong>${config.form_type}</strong></small>
-                                    <div class="row mt-1">
-                                        <div class="col-6">
-                                            <select class="form-select form-select-sm" 
-                                                    onchange="updateFormConfig(${config.id}, 'field_type', this.value)">
-                                                <option value="TEXT" ${config.field_type === 'TEXT' ? 'selected' : ''}>Text</option>
-                                                <option value="TEXTAREA" ${config.field_type === 'TEXTAREA' ? 'selected' : ''}>Textarea</option>
-                                                <option value="NUMBER" ${config.field_type === 'NUMBER' ? 'selected' : ''}>Number</option>
-                                                <option value="SELECT" ${config.field_type === 'SELECT' ? 'selected' : ''}>Select</option>
-                                                <option value="CHECKBOX" ${config.field_type === 'CHECKBOX' ? 'selected' : ''}>Checkbox</option>
-                                                <option value="DATE" ${config.field_type === 'DATE' ? 'selected' : ''}>Date</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" 
-                                                       ${config.is_visible ? 'checked' : ''}
-                                                       onchange="updateFormConfig(${config.id}, 'is_visible', this.checked)">
-                                                <label class="form-check-label small">Visible</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    ${config.field_type === 'SELECT' ? `
-                                        <div class="mt-2">
-                                            <select class="form-select form-select-sm" 
-                                                    onchange="updateFormConfig(${config.id}, 'dropdown_source_entity_id', this.value)">
-                                                <option value="">Select Source Entity</option>
-                                                <!-- Will be populated via JS -->
-                                            </select>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        container.innerHTML += attributeHtml;
+    // Entity search
+    document.getElementById('entitySearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        document.querySelectorAll('.entity-item').forEach(item => {
+            const entityName = item.dataset.entityName.toLowerCase();
+            item.style.display = entityName.includes(searchTerm) ? 'block' : 'none';
+        });
     });
-}
+});
 
-// Load forms tab
-function loadForms(forms) {
-    const container = document.getElementById('formsList');
-    container.innerHTML = '';
-    
-    const formsHtml = `
-        <div class="table-responsive">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Form Type</th>
-                        <th>Name</th>
-                        <th>Layout</th>
-                        <th>Fields</th>
-                        <th>Default</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${forms.map(form => `
-                        <tr>
-                            <td><span class="badge bg-secondary">${form.form_type}</span></td>
-                            <td>${form.name}</td>
-                            <td>${form.layout_type}</td>
-                            <td>${form.field_count}</td>
-                            <td>${form.is_default ? '<i class="bi bi-check text-success"></i>' : ''}</td>
-                            <td>
-                                <button class="btn btn-outline-primary btn-sm" onclick="selectFormType('${form.form_type}')">
-                                    <i class="bi bi-gear"></i> Configure
-                                </button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-    container.innerHTML = formsHtml;
-}
-
-// Select form type and load its fields
-function selectFormType(formType) {
-    document.getElementById('formTypeSelector').value = formType;
-    loadFormFields();
-}
-
-// Load form fields for configuration
-async function loadFormFields() {
-    const formType = document.getElementById('formTypeSelector').value;
-    const formFieldsConfig = document.getElementById('formFieldsConfig');
-    const formFieldsTable = document.getElementById('formFieldsTable');
-    
-    if (!formType || !currentEntityData) {
-        formFieldsConfig.style.display = 'none';
+// Load entity configuration
+async function loadEntity(entityId) {
+    if (pendingChanges.size > 0 && !confirm('You have unsaved changes. Continue without saving?')) {
         return;
     }
     
-    formFieldsConfig.style.display = 'block';
-    
-    // Get dropdown sources for configuration
-    let dropdownSources = [];
     try {
-        dropdownSources = await apiCall('/entity-designer/dropdown-sources');
+        // Highlight selected entity
+        document.querySelectorAll('.entity-item').forEach(item => {
+            item.style.background = item.dataset.entityId == entityId ? 'var(--sap-light-blue)' : '';
+            item.style.fontWeight = item.dataset.entityId == entityId ? '600' : 'normal';
+        });
+        
+        // Load data
+        const response = await fetch(`/entity-designer/entity/${entityId}`);
+        const data = await response.json();
+        
+        currentEntityId = entityId;
+        currentEntityData = data;
+        pendingChanges.clear();
+        
+        // Show config panel
+        document.getElementById('welcomePanel').style.display = 'none';
+        document.getElementById('configPanel').style.display = 'block';
+        
+        // Update header
+        document.getElementById('entityTitle').textContent = data.entity.name;
+        document.getElementById('entityModule').textContent = `${data.entity.application} > ${data.entity.module}`;
+        document.getElementById('entityCode').textContent = data.entity.code;
+        document.getElementById('editEntityBtn').href = `/custom-admin/models/entity_type/${entityId}/edit`;
+        document.getElementById('addAttributeBtn').href = `/custom-admin/models/attribute_definition/create?entity_type_id=${entityId}`;
+        
+        // Reset form selector
+        document.getElementById('formTypeSelector').value = '';
+        document.getElementById('formFieldsConfig').style.display = 'none';
+        
+        // Switch to attributes tab
+        switchTab('attributes');
+        loadAttributes(data.attributes);
+        
+        showToast('Entity loaded successfully', 'success');
     } catch (error) {
-        console.error('Failed to load dropdown sources:', error);
+        console.error('Error loading entity:', error);
+        showToast('Error loading entity: ' + error.message, 'error');
+    }
+}
+
+// Load attributes
+function loadAttributes(attributes) {
+    const tbody = document.getElementById('attributesTable');
+    tbody.innerHTML = '';
+    
+    if (!attributes || attributes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center" style="padding: 30px; color: var(--sap-text-muted);">
+                    No attributes defined. Click "Add Attribute" to create one.
+                </td>
+            </tr>
+        `;
+        return;
     }
     
-    // Build form fields table
-    const tableRows = currentEntityData.attributes.map(attr => {
-        // Find form config for this attribute and form type
-        const formConfig = attr.form_configs.find(config => config.form_type === formType) || {
+    attributes.forEach((attr, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${attr.code}</strong></td>
+            <td>${attr.name}</td>
+            <td><span class="badge bg-secondary" style="font-size: 9px;">${attr.data_type}</span></td>
+            <td style="text-align: center;">
+                <span class="material-symbols-outlined" style="font-size: 14px; color: ${attr.is_required ? '#28a745' : '#ccc'};">
+                    ${attr.is_required ? 'check_circle' : 'cancel'}
+                </span>
+            </td>
+            <td style="text-align: center;">
+                <span class="material-symbols-outlined" style="font-size: 14px; color: ${attr.is_unique ? '#007bff' : '#ccc'};">
+                    ${attr.is_unique ? 'check_circle' : 'cancel'}
+                </span>
+            </td>
+            <td>
+                <a href="/custom-admin/models/attribute_definition/${attr.id}/edit" 
+                   class="btn-sap" style="padding: 1px 5px; font-size: 10px;" title="Edit">
+                    <span class="material-symbols-outlined" style="font-size: 12px;">edit</span>
+                </a>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Switch tabs
+function switchTab(tabName) {
+    // Update nav
+    document.querySelectorAll('.nav-tabs-sap .nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.tab === tabName);
+    });
+    
+    // Show/hide content
+    document.getElementById('attributesTab').style.display = tabName === 'attributes' ? 'block' : 'none';
+    document.getElementById('formsTab').style.display = tabName === 'forms' ? 'block' : 'none';
+}
+
+// Load form fields for selected form type
+async function loadFormFields() {
+    const formType = document.getElementById('formTypeSelector').value;
+    
+    if (!formType || !currentEntityData) {
+        document.getElementById('formFieldsConfig').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('formFieldsConfig').style.display = 'block';
+    document.getElementById('formFieldsTitle').textContent = `${formType} Form Configuration`;
+    
+    const tbody = document.getElementById('formFieldsTable');
+    tbody.innerHTML = '';
+    
+    if (!currentEntityData.attributes || currentEntityData.attributes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center" style="padding: 30px; color: var(--sap-text-muted);">
+                    No attributes available. Add attributes first.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    currentEntityData.attributes.forEach(attr => {
+        // Find existing config for this form type
+        const formConfig = attr.form_configs.find(fc => fc.form_type === formType) || {
             field_type: getDefaultFieldType(attr.data_type),
             is_visible: true,
             is_editable: formType === 'CREATE' || formType === 'EDIT',
@@ -557,238 +439,148 @@ async function loadFormFields() {
             dropdown_source_attribute_id: null
         };
         
-        return `
-            <tr data-attr-id="${attr.id}" data-form-type="${formType}">
-                <td>
-                    <strong>${attr.name}</strong><br>
-                    <small class="text-muted">${attr.code}</small>
-                </td>
-                <td>
-                    <select class="form-select form-select-sm" 
-                            onchange="updateFormField(${attr.id}, 'field_type', this.value)">
-                        <option value="TEXT" ${formConfig.field_type === 'TEXT' ? 'selected' : ''}>Text</option>
-                        <option value="TEXTAREA" ${formConfig.field_type === 'TEXTAREA' ? 'selected' : ''}>Textarea</option>
-                        <option value="NUMBER" ${formConfig.field_type === 'NUMBER' ? 'selected' : ''}>Number</option>
-                        <option value="DECIMAL" ${formConfig.field_type === 'DECIMAL' ? 'selected' : ''}>Decimal</option>
-                        <option value="SELECT" ${formConfig.field_type === 'SELECT' ? 'selected' : ''}>Dropdown</option>
-                        <option value="MULTISELECT" ${formConfig.field_type === 'MULTISELECT' ? 'selected' : ''}>Multi-Select</option>
-                        <option value="CHECKBOX" ${formConfig.field_type === 'CHECKBOX' ? 'selected' : ''}>Checkbox</option>
-                        <option value="DATE" ${formConfig.field_type === 'DATE' ? 'selected' : ''}>Date</option>
-                        <option value="DATETIME" ${formConfig.field_type === 'DATETIME' ? 'selected' : ''}>DateTime</option>
-                    </select>
-                </td>
-                <td>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" 
-                               ${formConfig.is_visible ? 'checked' : ''}
-                               onchange="updateFormField(${attr.id}, 'is_visible', this.checked)">
-                    </div>
-                </td>
-                <td>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" 
-                               ${formConfig.is_editable ? 'checked' : ''}
-                               ${formType === 'DETAIL' || formType === 'LIST' ? 'disabled' : ''}
-                               onchange="updateFormField(${attr.id}, 'is_editable', this.checked)">
-                    </div>
-                </td>
-                <td>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" 
-                               ${formConfig.is_required ? 'checked' : ''}
-                               ${!formConfig.is_editable ? 'disabled' : ''}
-                               onchange="updateFormField(${attr.id}, 'is_required', this.checked)">
-                    </div>
-                </td>
-                <td>
-                    <div class="dropdown-config" style="display: ${formConfig.field_type === 'SELECT' || formConfig.field_type === 'MULTISELECT' ? 'block' : 'none'};">
-                        <select class="form-select form-select-sm mb-1" 
-                                onchange="updateFormField(${attr.id}, 'dropdown_source_entity_id', this.value)">
-                            <option value="">Select Entity</option>
-                            ${dropdownSources.map(entity => 
-                                `<option value="${entity.id}" ${formConfig.dropdown_source_entity_id == entity.id ? 'selected' : ''}>
-                                    ${entity.name}
-                                </option>`
-                            ).join('')}
-                        </select>
-                        ${formConfig.dropdown_source_entity_id ? `
-                            <select class="form-select form-select-sm" 
-                                    onchange="updateFormField(${attr.id}, 'dropdown_source_attribute_id', this.value)">
-                                <option value="">Select Attribute</option>
-                                ${(() => {
-                                    const sourceEntity = dropdownSources.find(e => e.id == formConfig.dropdown_source_entity_id);
-                                    return sourceEntity ? sourceEntity.attributes.map(sourceAttr => 
-                                        `<option value="${sourceAttr.id}" ${formConfig.dropdown_source_attribute_id == sourceAttr.id ? 'selected' : ''}>
-                                            ${sourceAttr.name}
-                                        </option>`
-                                    ).join('') : '';
-                                })()}
-                            </select>
-                        ` : ''}
-                    </div>
-                </td>
-            </tr>
+        const row = document.createElement('tr');
+        row.dataset.attrId = attr.id;
+        
+        // Build dropdown config HTML
+        const isDropdownField = formConfig.field_type === 'SELECT' || formConfig.field_type === 'MULTISELECT';
+        const dropdownConfigHtml = buildDropdownConfig(attr, formConfig);
+        
+        row.innerHTML = `
+            <td><strong>${attr.name}</strong><br><small style="color: var(--sap-text-muted);">${attr.code}</small></td>
+            <td>
+                <select class="form-control form-control-sm" 
+                        onchange="updateFieldConfig(${attr.id}, 'field_type', this.value)">
+                    <option value="TEXT" ${formConfig.field_type === 'TEXT' ? 'selected' : ''}>Text</option>
+                    <option value="TEXTAREA" ${formConfig.field_type === 'TEXTAREA' ? 'selected' : ''}>Textarea</option>
+                    <option value="NUMBER" ${formConfig.field_type === 'NUMBER' ? 'selected' : ''}>Number</option>
+                    <option value="DECIMAL" ${formConfig.field_type === 'DECIMAL' ? 'selected' : ''}>Decimal</option>
+                    <option value="SELECT" ${formConfig.field_type === 'SELECT' ? 'selected' : ''}>Dropdown</option>
+                    <option value="MULTISELECT" ${formConfig.field_type === 'MULTISELECT' ? 'selected' : ''}>Multi-Select</option>
+                    <option value="CHECKBOX" ${formConfig.field_type === 'CHECKBOX' ? 'selected' : ''}>Checkbox</option>
+                    <option value="DATE" ${formConfig.field_type === 'DATE' ? 'selected' : ''}>Date</option>
+                    <option value="DATETIME" ${formConfig.field_type === 'DATETIME' ? 'selected' : ''}>DateTime</option>
+                </select>
+            </td>
+            <td style="text-align: center;">
+                <input type="checkbox" ${formConfig.is_visible ? 'checked' : ''}
+                       onchange="updateFieldConfig(${attr.id}, 'is_visible', this.checked)">
+            </td>
+            <td style="text-align: center;">
+                <input type="checkbox" ${formConfig.is_editable ? 'checked' : ''}
+                       ${formType === 'DETAIL' || formType === 'LIST' ? 'disabled' : ''}
+                       onchange="updateFieldConfig(${attr.id}, 'is_editable', this.checked)">
+            </td>
+            <td style="text-align: center;">
+                <input type="checkbox" ${formConfig.is_required ? 'checked' : ''}
+                       ${!formConfig.is_editable ? 'disabled' : ''}
+                       onchange="updateFieldConfig(${attr.id}, 'is_required', this.checked)">
+            </td>
+            <td>
+                <div class="dropdown-config" data-attr-id="${attr.id}" 
+                     style="display: ${isDropdownField ? 'block' : 'none'};">
+                    ${dropdownConfigHtml}
+                </div>
+            </td>
         `;
-    }).join('');
-    
-    formFieldsTable.innerHTML = tableRows;
-    
-    // Add change handler for field type to show/hide dropdown config
-    formFieldsTable.querySelectorAll('select').forEach(select => {
-        if (select.onchange && select.onchange.toString().includes('field_type')) {
-            const originalHandler = select.onchange;
-            select.onchange = function(e) {
-                originalHandler.call(this, e);
-                const row = this.closest('tr');
-                const dropdownConfig = row.querySelector('.dropdown-config');
-                if (this.value === 'SELECT' || this.value === 'MULTISELECT') {
-                    dropdownConfig.style.display = 'block';
-                } else {
-                    dropdownConfig.style.display = 'none';
-                }
-            };
-        }
+        
+        tbody.appendChild(row);
     });
 }
 
-// Update form field configuration  
-async function updateFormField(attrId, field, value) {
+// Build dropdown configuration HTML
+function buildDropdownConfig(attr, formConfig) {
+    const entities = dropdownSources.map(entity => {
+        const selected = entity.id == formConfig.dropdown_source_entity_id ? 'selected' : '';
+        return `<option value="${entity.id}" ${selected}>${entity.name}</option>`;
+    }).join('');
+    
+    let attributesHtml = '<option value="">Select attribute...</option>';
+    if (formConfig.dropdown_source_entity_id) {
+        const sourceEntity = dropdownSources.find(e => e.id == formConfig.dropdown_source_entity_id);
+        if (sourceEntity) {
+            attributesHtml += sourceEntity.attributes.map(a => {
+                const selected = a.id == formConfig.dropdown_source_attribute_id ? 'selected' : '';
+                return `<option value="${a.id}" ${selected}>${a.name} (${a.code})</option>`;
+            }).join('');
+        }
+    }
+    
+    return `
+        <div class="mb-2">
+            <small style="font-weight: 600;">Source Entity:</small>
+            <select class="form-control form-control-sm" 
+                    onchange="updateDropdownEntity(${attr.id}, this.value)">
+                <option value="">Select entity...</option>
+                ${entities}
+            </select>
+        </div>
+        <div class="dropdown-attr-select">
+            <small style="font-weight: 600;">Source Attribute:</small>
+            <select class="form-control form-control-sm" 
+                    onchange="updateFieldConfig(${attr.id}, 'dropdown_source_attribute_id', this.value)">
+                ${attributesHtml}
+            </select>
+        </div>
+    `;
+}
+
+// Update dropdown entity selection
+function updateDropdownEntity(attrId, entityId) {
+    // Update source entity
+    updateFieldConfig(attrId, 'dropdown_source_entity_id', entityId);
+    
+    // Reload dropdown config to show attributes
     const formType = document.getElementById('formTypeSelector').value;
-    if (!formType || !currentEntityId) return;
+    if (formType) {
+        loadFormFields();
+    }
+}
+
+// Update field configuration
+function updateFieldConfig(attrId, field, value) {
+    const formType = document.getElementById('formTypeSelector').value;
+    if (!formType || !currentEntityData) return;
     
-    // Update the current entity data in memory
-    const attribute = currentEntityData.attributes.find(a => a.id === attrId);
-    if (!attribute) return;
+    // Find attribute in current data
+    const attr = currentEntityData.attributes.find(a => a.id === attrId);
+    if (!attr) return;
     
-    let formConfig = attribute.form_configs.find(config => config.form_type === formType);
+    // Find or create form config
+    let formConfig = attr.form_configs.find(fc => fc.form_type === formType);
     if (!formConfig) {
-        // Create new form config in memory
         formConfig = {
-            id: null,
             form_type: formType,
-            field_type: getDefaultFieldType(attribute.data_type),
+            field_type: getDefaultFieldType(attr.data_type),
             is_visible: true,
             is_editable: formType === 'CREATE' || formType === 'EDIT',
             is_required: false,
             dropdown_source_entity_id: null,
             dropdown_source_attribute_id: null
         };
-        attribute.form_configs.push(formConfig);
+        attr.form_configs.push(formConfig);
     }
     
     // Update field
     formConfig[field] = value;
     
-    // If changing entity source, reload attributes dropdown
-    if (field === 'dropdown_source_entity_id') {
-        const row = document.querySelector(`tr[data-attr-id="${attrId}"]`);
-        if (row && value) {
-            loadAttributesForEntity(value, attrId);
-        }
+    // Track change
+    pendingChanges.add(`${attrId}-${formType}-${field}`);
+    
+    // If field type changed to/from dropdown, reload form fields
+    if (field === 'field_type') {
+        loadFormFields();
     }
     
-    // Save to server (debounced)
-    clearTimeout(window.formConfigTimer);
-    window.formConfigTimer = setTimeout(async () => {
-        try {
-            await apiCall(`/entity-designer/entity/${currentEntityId}/form-config`, 'POST', {
-                form_type: formType,
-                attribute_id: attrId,
-                field_type: formConfig.field_type,
-                is_visible: formConfig.is_visible,
-                is_editable: formConfig.is_editable,
-                is_required: formConfig.is_required,
-                dropdown_source_entity_id: formConfig.dropdown_source_entity_id,
-                dropdown_source_attribute_id: formConfig.dropdown_source_attribute_id
-            });
-            
-            // Show subtle success indicator
-            const row = document.querySelector(`tr[data-attr-id="${attrId}"]`);
-            if (row) {
-                row.style.backgroundColor = '#d4edda';
-                setTimeout(() => {
-                    row.style.backgroundColor = '';
-                }, 1000);
-            }
-            
-        } catch (error) {
-            console.error('Failed to update form config:', error);
-            showToast('Failed to save changes', 'danger');
-        }
-    }, 800);
-}
-
-// Load attributes dropdown for entity
-async function loadAttributesForEntity(entityId, targetAttrId) {
-    try {
-        const dropdownSources = await apiCall('/entity-designer/dropdown-sources');
-        const sourceEntity = dropdownSources.find(e => e.id == entityId);
-        
-        if (sourceEntity) {
-            const row = document.querySelector(`tr[data-attr-id="${targetAttrId}"]`);
-            const attrSelect = row.querySelector('select:last-child');
-            
-            attrSelect.innerHTML = '<option value="">Select Attribute</option>';
-            sourceEntity.attributes.forEach(attr => {
-                const option = document.createElement('option');
-                option.value = attr.id;
-                option.textContent = `${attr.name} (${attr.code})`;
-                attrSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Failed to load attributes:', error);
-    }
-}
-
-// Save entire form configuration
-async function saveFormConfig() {
-    const formType = document.getElementById('formTypeSelector').value;
-    if (!formType || !currentEntityData) return;
-    
-    const form = currentEntityData.forms.find(f => f.form_type === formType);
-    if (!form) {
-        showToast('Form not found', 'warning');
-        return;
-    }
-    
-    try {
-        const formConfigs = [];
-        
-        // Collect all form field configurations
-        currentEntityData.attributes.forEach(attr => {
-            const formConfig = attr.form_configs.find(config => config.form_type === formType);
-            if (formConfig) {
-                formConfigs.push({
-                    id: formConfig.id,
-                    form_definition_id: form.id,
-                    attribute_definition_id: attr.id,
-                    field_type: formConfig.field_type,
-                    is_visible: formConfig.is_visible,
-                    is_editable: formConfig.is_editable,
-                    is_required: formConfig.is_required,
-                    dropdown_source_entity_id: formConfig.dropdown_source_entity_id,
-                    dropdown_source_attribute_id: formConfig.dropdown_source_attribute_id
-                });
-            }
-        });
-        
-        await apiCall(`/entity-designer/entity/${currentEntityId}/save`, 'POST', {
-            form_configs: formConfigs
-        });
-        
-        showToast(`${formType} form configuration saved successfully`, 'success');
-        
-    } catch (error) {
-        console.error('Failed to save form config:', error);
-    }
+    // Show save indicator
+    showSaveIndicator();
 }
 
 // Get default field type for data type
 function getDefaultFieldType(dataType) {
     const mapping = {
         'VARCHAR': 'TEXT',
-        'TEXT': 'TEXTAREA', 
+        'TEXT': 'TEXTAREA',
         'INT': 'NUMBER',
         'BIGINT': 'NUMBER',
         'DECIMAL': 'DECIMAL',
@@ -799,218 +591,339 @@ function getDefaultFieldType(dataType) {
     return mapping[dataType] || 'TEXT';
 }
 
-// Save basic info
-async function saveBasicInfo() {
-    if (!currentEntityId) return;
-    
-    const data = {
-        entity: {
-            name: document.getElementById('entityName').value,
-            description: document.getElementById('entityDescription').value,
-            icon: document.getElementById('entityIcon').value,
-            is_master: document.getElementById('isMaster').checked,
-            is_transactional: document.getElementById('isTransactional').checked
-        }
-    };
+// Save form configuration
+async function saveFormConfig() {
+    const formType = document.getElementById('formTypeSelector').value;
+    if (!formType || !currentEntityData) return;
     
     try {
-        await apiCall(`/entity-designer/entity/${currentEntityId}/save`, 'POST', data);
-        showToast('Basic info saved successfully', 'success');
+        const formConfigs = [];
         
-        // Refresh entity list
-        location.reload();
+        currentEntityData.attributes.forEach(attr => {
+            const formConfig = attr.form_configs.find(fc => fc.form_type === formType);
+            if (formConfig) {
+                formConfigs.push({
+                    attribute_id: attr.id,
+                    form_type: formType,
+                    field_type: formConfig.field_type,
+                    is_visible: formConfig.is_visible,
+                    is_editable: formConfig.is_editable,
+                    is_required: formConfig.is_required,
+                    dropdown_source_entity_id: formConfig.dropdown_source_entity_id || null,
+                    dropdown_source_attribute_id: formConfig.dropdown_source_attribute_id || null,
+                    show_unique_values_only: formConfig.show_unique_values_only || false
+                });
+            }
+        });
+        
+        // Save each field config
+        for (const config of formConfigs) {
+            await fetch(`/entity-designer/entity/${currentEntityId}/form-config`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(config)
+            });
+        }
+        
+        pendingChanges.clear();
+        showToast(`${formType} form saved successfully`, 'success');
         
     } catch (error) {
-        console.error('Failed to save basic info:', error);
+        console.error('Error saving form config:', error);
+        showToast('Error saving form configuration', 'error');
     }
 }
 
-// Add new attribute
-function addAttribute() {
-    const modal = new bootstrap.Modal(document.getElementById('addAttributeModal'));
-    modal.show();
+// Save all changes
+async function saveAllChanges() {
+    if (pendingChanges.size === 0) {
+        showToast('No changes to save', 'info');
+        return;
+    }
+    
+    await saveFormConfig();
 }
 
-// Save new attribute
-async function saveNewAttribute() {
+// Generate all forms
+async function generateForms(regenerate = false) {
     if (!currentEntityId) return;
     
-    const data = {
-        code: document.getElementById('newAttrCode').value,
-        name: document.getElementById('newAttrName').value,
-        data_type: document.getElementById('newAttrDataType').value,
-        max_length: document.getElementById('newAttrMaxLength').value || null,
-        is_required: document.getElementById('newAttrRequired').checked,
-        is_unique: document.getElementById('newAttrUnique').checked
-    };
-    
-    if (!data.code || !data.name) {
-        showToast('Code and Name are required', 'warning');
+    if (!regenerate && !confirm('This will generate default forms for all form types. Continue?')) {
         return;
     }
     
     try {
-        await apiCall(`/entity-designer/entity/${currentEntityId}/attribute`, 'POST', data);
-        showToast('Attribute added successfully', 'success');
+        const response = await fetch(`/entity-designer/entity/${currentEntityId}/generate-forms`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ regenerate: regenerate })
+        });
         
-        // Hide modal and reload entity
-        bootstrap.Modal.getInstance(document.getElementById('addAttributeModal')).hide();
-        loadEntity(currentEntityId);
+        const result = await response.json();
         
-        // Clear form
-        document.getElementById('newAttrCode').value = '';
-        document.getElementById('newAttrName').value = '';
-        document.getElementById('newAttrMaxLength').value = '';
-        document.getElementById('newAttrRequired').checked = false;
-        document.getElementById('newAttrUnique').checked = false;
-        
-    } catch (error) {
-        console.error('Failed to add attribute:', error);
-    }
-}
-
-// Delete attribute
-async function deleteAttribute(attrId) {
-    if (!confirm('Are you sure you want to delete this attribute?')) return;
-    
-    try {
-        await apiCall(`/entity-designer/entity/${currentEntityId}/attribute/${attrId}`, 'DELETE');
-        showToast('Attribute deleted successfully', 'success');
-        loadEntity(currentEntityId);
-        
-    } catch (error) {
-        console.error('Failed to delete attribute:', error);
-    }
-}
-
-// Update attribute field
-async function updateAttribute(attrId, field, value) {
-    // Debounce updates
-    clearTimeout(window.updateTimer);
-    window.updateTimer = setTimeout(async () => {
-        try {
-            const data = { [field]: value };
-            await apiCall(`/entity-designer/entity/${currentEntityId}/save`, 'POST', {
-                attributes: [{ id: attrId, ...data }]
-            });
-        } catch (error) {
-            console.error('Failed to update attribute:', error);
+        if (result.success) {
+            showToast(result.message || 'Forms generated successfully', 'success');
+            loadEntity(currentEntityId);
+        } else if (result.ask_regenerate) {
+            // Forms already exist, ask to regenerate
+            const existingForms = result.existing_forms.join(', ');
+            if (confirm(`Forms already exist: ${existingForms}\n\nDo you want to REGENERATE all forms? This will DELETE existing forms and create new ones.`)) {
+                await generateForms(true);
+            }
+        } else {
+            showToast('Error: ' + result.error, 'error');
         }
-    }, 500);
-}
-
-// Update form configuration
-async function updateFormConfig(configId, field, value) {
-    clearTimeout(window.formConfigTimer);
-    window.formConfigTimer = setTimeout(async () => {
-        try {
-            const data = { [field]: value };
-            await apiCall(`/entity-designer/entity/${currentEntityId}/save`, 'POST', {
-                form_configs: [{ id: configId, ...data }]
-            });
-        } catch (error) {
-            console.error('Failed to update form config:', error);
-        }
-    }, 500);
-}
-
-// Create new entity
-async function createEntity() {
-    const data = {
-        module_id: document.getElementById('newEntityModule').value,
-        code: document.getElementById('newEntityCode').value,
-        name: document.getElementById('newEntityName').value,
-        description: document.getElementById('newEntityDescription').value,
-        is_master: document.getElementById('newIsMaster').checked,
-        is_transactional: document.getElementById('newIsTransactional').checked
-    };
-    
-    if (!data.module_id || !data.code || !data.name) {
-        showToast('Module, Code and Name are required', 'warning');
-        return;
-    }
-    
-    try {
-        const result = await apiCall('/entity-designer/create-entity', 'POST', data);
-        showToast('Entity created successfully', 'success');
-        
-        // Hide modal and reload page
-        bootstrap.Modal.getInstance(document.getElementById('createEntityModal')).hide();
-        location.reload();
-        
     } catch (error) {
-        console.error('Failed to create entity:', error);
+        console.error('Error generating forms:', error);
+        showToast('Error generating forms', 'error');
     }
 }
 
-// Generate default forms
-async function generateForms() {
-    if (!currentEntityId) return;
-    
-    if (!confirm('This will generate default forms for all form types. Continue?')) return;
-    
-    try {
-        await apiCall(`/entity-designer/entity/${currentEntityId}/generate-forms`, 'POST');
-        showToast('Default forms generated successfully', 'success');
-        loadEntity(currentEntityId);
-        
-    } catch (error) {
-        console.error('Failed to generate forms:', error);
+// Show save indicator
+function showSaveIndicator() {
+    const indicator = document.getElementById('saveIndicator');
+    if (!indicator) {
+        const newIndicator = document.createElement('div');
+        newIndicator.id = 'saveIndicator';
+        newIndicator.style.cssText = `
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: #ffc107;
+            color: #000;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            z-index: 9999;
+        `;
+        newIndicator.innerHTML = '<strong>Unsaved changes</strong>';
+        document.body.appendChild(newIndicator);
     }
 }
 
-// Configure form (placeholder)
-function configureForm(formId) {
-    showToast('Form configuration coming soon', 'info');
+// Get CSRF token
+function getCSRFToken() {
+    const metaToken = document.querySelector('meta[name=csrf-token]');
+    if (metaToken) {
+        return metaToken.getAttribute('content');
+    }
+    return '';
 }
 
-// Load forms tab - updated to show summary table
-function loadForms(forms) {
-    const container = document.getElementById('formsList');
-    
-    const formsHtml = `
-        <div class="table-responsive mt-3">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Form Type</th>
-                        <th>Name</th>
-                        <th>Layout</th>
-                        <th>Fields</th>
-                        <th>Default</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${forms.map(form => `
-                        <tr>
-                            <td><span class="badge bg-secondary">${form.form_type}</span></td>
-                            <td>${form.name}</td>
-                            <td>${form.layout_type}</td>
-                            <td>${form.field_count}</td>
-                            <td>${form.is_default ? '<i class="bi bi-check text-success"></i>' : ''}</td>
-                            <td>
-                                <button class="btn btn-outline-primary btn-sm" onclick="selectFormType('${form.form_type}')">
-                                    <i class="bi bi-gear"></i> Configure
-                                </button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
+// Show toast notification
+function showToast(message, type = 'info') {
+    const alertClass = type === 'error' ? 'alert-error' : `alert-${type}`;
+    const toast = document.createElement('div');
+    toast.className = `alert-sap ${alertClass}`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        animation: slideInRight 0.3s ease;
     `;
-    container.innerHTML = formsHtml;
+    
+    const icon = type === 'success' ? 'check_circle' : 
+                 type === 'error' ? 'error' : 
+                 type === 'warning' ? 'warning' : 'info';
+    
+    toast.innerHTML = `
+        <span class="material-symbols-outlined" style="margin-right: 5px; font-size: 14px;">${icon}</span>
+        ${message}
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-select first entity if available
-    const firstEntity = document.querySelector('[id^="entity-"]');
-    if (firstEntity) {
-        const entityId = firstEntity.id.split('-')[1];
-        loadEntity(parseInt(entityId));
+// View forms summary
+function viewFormsSummary() {
+    if (!currentEntityData || !currentEntityData.forms) {
+        showToast('No forms data available', 'warning');
+        return;
     }
-});
+    
+    const forms = currentEntityData.forms;
+    if (forms.length === 0) {
+        showToast('No forms created yet. Click "Generate All Forms" to create them.', 'info');
+        return;
+    }
+    
+    let summary = `<strong>Forms Summary for ${currentEntityData.entity.name}:</strong><br><br>`;
+    forms.forEach(form => {
+        summary += `<div style="margin-bottom: 8px;">
+            <strong>${form.form_type}</strong> - ${form.name}<br>
+            <small style="color: var(--sap-text-muted);">
+                Layout: ${form.layout_type} | Fields: ${form.field_count} | 
+                ${form.is_default ? '<span style="color: #28a745;">Default</span>' : ''}
+            </small>
+        </div>`;
+    });
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 10000;
+        max-width: 500px;
+        width: 90%;
+    `;
+    modal.innerHTML = `
+        ${summary}
+        <button onclick="this.closest('div').remove(); document.getElementById('modalOverlay').remove();" 
+                class="btn-sap btn-primary mt-3">Close</button>
+    `;
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'modalOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+    `;
+    overlay.onclick = () => {
+        modal.remove();
+        overlay.remove();
+    };
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+}
+
+// Delete all forms
+async function deleteAllForms() {
+    if (!currentEntityId) return;
+    
+    if (!confirm('⚠️ WARNING: This will DELETE ALL FORMS and their field configurations for this entity.\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?')) {
+        return;
+    }
+    
+    // Double confirmation
+    const confirmText = prompt('Type "DELETE" to confirm:');
+    if (confirmText !== 'DELETE') {
+        showToast('Deletion cancelled', 'info');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/entity-designer/entity/${currentEntityId}/delete-forms`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('All forms deleted successfully', 'success');
+            loadEntity(currentEntityId);
+        } else {
+            showToast('Error: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting forms:', error);
+        showToast('Error deleting forms', 'error');
+    }
+}
+
+// Manage forms in admin panel
+function manageFormsInAdmin() {
+    if (!currentEntityId) return;
+    window.open(`/custom-admin/models/form_definition?filter_entity_type_id=${currentEntityId}`, '_blank');
+}
 </script>
+
+<style>
+.entity-item:hover {
+    background-color: var(--sap-light-blue) !important;
+}
+
+.entity-item.active {
+    background-color: var(--sap-light-blue);
+    border-left: 3px solid var(--sap-blue);
+}
+
+.nav-tabs-sap .nav-link {
+    cursor: pointer;
+}
+
+.table-sap input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.table-sap select.form-control-sm {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.dropdown-config {
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.dropdown-config small {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--sap-text);
+}
+
+.dropdown-config select {
+    margin-bottom: 8px;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Scrollbar styling */
+#entityList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#entityList::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#entityList::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+#entityList::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
 {% endblock %}

@@ -809,6 +809,108 @@ Index('idx_audit_created_at', AuditLog.created_at)
 # 10. HELPER FUNCTIONS
 # ===========================================
 
+def get_user_permissions(user_id, entity_type_id):
+    """
+    Get detailed permissions for a user on an entity type
+    Returns dict with can_read, can_create, can_update, can_delete
+    This is used by templates to show/hide UI elements
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return {
+            'can_read': False,
+            'can_create': False,
+            'can_update': False,
+            'can_delete': False
+        }
+    
+    # Get all role IDs for this user
+    user_role_ids = [ur.role_id for ur in user.user_roles]
+    
+    # Get all permissions for these roles and this entity type
+    permissions = EntityPermission.query.filter(
+        EntityPermission.role_id.in_(user_role_ids),
+        EntityPermission.entity_type_id == entity_type_id
+    ).all()
+    
+    # Aggregate permissions (if user has multiple roles, grant if ANY role has permission)
+    result = {
+        'can_read': False,
+        'can_create': False,
+        'can_update': False,
+        'can_delete': False
+    }
+    
+    for perm in permissions:
+        if perm.can_read:
+            result['can_read'] = True
+        if perm.can_create:
+            result['can_create'] = True
+        if perm.can_update:
+            result['can_update'] = True
+        if perm.can_delete:
+            result['can_delete'] = True
+    
+    return result
+
+def can_access_module(user_id, module_id):
+    """
+    Check if user can access any entity in a module
+    Returns True if user has read permission for at least one entity in the module
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return False
+    
+    user_role_ids = [ur.role_id for ur in user.user_roles]
+    
+    # Get all entity types in this module
+    entity_types = EntityType.query.filter_by(module_id=module_id, is_active=True).all()
+    entity_type_ids = [et.id for et in entity_types]
+    
+    if not entity_type_ids:
+        return False
+    
+    # Check if user has read permission for any entity in the module
+    permissions = EntityPermission.query.filter(
+        EntityPermission.role_id.in_(user_role_ids),
+        EntityPermission.entity_type_id.in_(entity_type_ids),
+        EntityPermission.can_read == True
+    ).first()
+    
+    return permissions is not None
+
+def get_accessible_entity_types_for_module(user_id, module_id):
+    """
+    Get list of entity types in a module that the user can read
+    Returns list of EntityType objects
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return []
+    
+    user_role_ids = [ur.role_id for ur in user.user_roles]
+    
+    # Get all entity types in this module
+    entity_types = EntityType.query.filter_by(
+        module_id=module_id, 
+        is_active=True
+    ).order_by(EntityType.order_index).all()
+    
+    # Get permissions for these entity types
+    entity_type_ids = [et.id for et in entity_types]
+    permissions = EntityPermission.query.filter(
+        EntityPermission.role_id.in_(user_role_ids),
+        EntityPermission.entity_type_id.in_(entity_type_ids),
+        EntityPermission.can_read == True
+    ).all()
+    
+    # Create set of accessible entity type IDs
+    accessible_ids = {perm.entity_type_id for perm in permissions}
+    
+    # Filter entity types to only those accessible
+    return [et for et in entity_types if et.id in accessible_ids]
+
 def get_dropdown_options(entity_type_id, source_attribute_code, display_attribute_code=None, unique_only=False):
     """Get dropdown options from entity instances"""
     try:
@@ -1048,5 +1150,7 @@ __all__ = [
     'get_entity_instances_with_attributes',
     'create_entity_instance_with_attributes', 'update_entity_instance_attributes',
     'check_user_permissions', 'log_audit_entry', 'get_workflow_next_states', 
-    'initialize_database', 'get_dropdown_options'
+    'initialize_database', 'get_dropdown_options','get_user_permissions',
+    'can_access_module', 
+    'get_accessible_entity_types_for_module'
 ]

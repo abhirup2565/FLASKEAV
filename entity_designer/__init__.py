@@ -467,15 +467,175 @@ def delete_attribute(entity_id, attr_id):
 @entity_designer_bp.route('/entity/<int:entity_id>/generate-forms', methods=['POST'])
 @login_required
 def generate_default_forms(entity_id):
-    """Generate default forms for entity"""
+    """Generate default forms for entity - with option to regenerate"""
     try:
-        success = EntityDesignerUtils.create_default_forms(entity_id)
-        if success:
-            return jsonify({'success': True, 'message': 'Default forms generated successfully'})
-        else:
-            return jsonify({'error': 'Failed to generate forms'}), 500
+        data = request.json or {}
+        regenerate = data.get('regenerate', False)
+        
+        entity_type = EntityType.query.get(entity_id)
+        if not entity_type:
+            return jsonify({'error': 'Entity not found'}), 404
+        
+        # Check if forms already exist
+        existing_forms = FormDefinition.query.filter_by(
+            entity_type_id=entity_id,
+            is_active=True
+        ).all()
+        
+        if existing_forms and not regenerate:
+            return jsonify({
+                'success': False,
+                'error': 'Forms already exist for this entity',
+                'existing_forms': [f.form_type.value for f in existing_forms],
+                'ask_regenerate': True
+            }), 400
+        
+        # If regenerating, delete existing forms and their field configs
+        if regenerate and existing_forms:
+            for form in existing_forms:
+                # Delete field configurations
+                FormFieldConfiguration.query.filter_by(
+                    form_definition_id=form.id
+                ).delete()
+                # Delete form
+                db.session.delete(form)
+            db.session.flush()
+        
+        # Get all attributes
+        attributes = AttributeDefinition.query.filter_by(
+            entity_type_id=entity_id,
+            is_active=True
+        ).order_by(AttributeDefinition.order_index).all()
+        
+        if not attributes:
+            return jsonify({
+                'error': 'No attributes found. Add attributes before generating forms.'
+            }), 400
+        
+        form_types = [
+            (FormTypeEnum.LIST, 'List View', LayoutTypeEnum.SINGLE_COLUMN, 25),
+            (FormTypeEnum.DETAIL, 'Detail View', LayoutTypeEnum.TWO_COLUMN, 1),
+            (FormTypeEnum.CREATE, 'Create Form', LayoutTypeEnum.TWO_COLUMN, 1),
+            (FormTypeEnum.EDIT, 'Edit Form', LayoutTypeEnum.TWO_COLUMN, 1)
+        ]
+        
+        created_forms = []
+        
+        for form_type, form_name, layout_type, records_per_page in form_types:
+            # Check if this specific form type already exists
+            existing = FormDefinition.query.filter_by(
+                entity_type_id=entity_id,
+                form_type=form_type,
+                is_active=True
+            ).first()
             
+            if existing and not regenerate:
+                continue
+            
+            # Create form definition
+            form_def = FormDefinition(
+                entity_type_id=entity_id,
+                code=f"{entity_type.code}_{form_type.value}",
+                name=f"{entity_type.name} {form_name}",
+                form_type=form_type,
+                layout_type=layout_type,
+                records_per_page=records_per_page,
+                is_default=True,
+                is_active=True,
+                created_by=current_user.username
+            )
+            db.session.add(form_def)
+            db.session.flush()
+            
+            # Create field configurations for each attribute
+            for attr in attributes:
+                field_type = get_default_field_type_for_attr(attr)
+                is_editable = form_type in [FormTypeEnum.CREATE, FormTypeEnum.EDIT]
+                
+                field_config = FormFieldConfiguration(
+                    form_definition_id=form_def.id,
+                    attribute_definition_id=attr.id,
+                    field_label=attr.name,
+                    field_type=field_type,
+                    order_index=attr.order_index,
+                    is_visible=True,
+                    is_editable=is_editable,
+                    is_required=attr.is_required and is_editable,
+                    created_by=current_user.username
+                )
+                db.session.add(field_config)
+            
+            created_forms.append(form_type.value)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Generated {len(created_forms)} form(s) successfully',
+            'forms': created_forms
+        })
+        
     except Exception as e:
+        db.session.rollback()
+        print(f"Error generating forms: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+def get_default_field_type_for_attr(attr):
+    """Determine default field type for an attribute"""
+    mapping = {
+        DataTypeEnum.VARCHAR: FieldTypeEnum.TEXT,
+        DataTypeEnum.TEXT: FieldTypeEnum.TEXTAREA,
+        DataTypeEnum.INT: FieldTypeEnum.NUMBER,
+        DataTypeEnum.BIGINT: FieldTypeEnum.NUMBER,
+        DataTypeEnum.DECIMAL: FieldTypeEnum.DECIMAL,
+        DataTypeEnum.BOOLEAN: FieldTypeEnum.CHECKBOX,
+        DataTypeEnum.DATE: FieldTypeEnum.DATE,
+        DataTypeEnum.DATETIME: FieldTypeEnum.DATETIME
+    }
+    return mapping.get(attr.data_type, FieldTypeEnum.TEXT)
+
+@entity_designer_bp.route('/entity/<int:entity_id>/delete-forms', methods=['DELETE'])
+@login_required
+def delete_all_forms(entity_id):
+    """Delete all forms for an entity"""
+    try:
+        entity_type = EntityType.query.get(entity_id)
+        if not entity_type:
+            return jsonify({'error': 'Entity not found'}), 404
+        
+        # Get all forms for this entity
+        forms = FormDefinition.query.filter_by(
+            entity_type_id=entity_id
+        ).all()
+        
+        if not forms:
+            return jsonify({'error': 'No forms found for this entity'}), 404
+        
+        deleted_count = 0
+        for form in forms:
+            # Delete field configurations first
+            FormFieldConfiguration.query.filter_by(
+                form_definition_id=form.id
+            ).delete()
+            
+            # Delete the form
+            db.session.delete(form)
+            deleted_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {deleted_count} form(s) successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting forms: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @entity_designer_bp.route('/dropdown-sources')
